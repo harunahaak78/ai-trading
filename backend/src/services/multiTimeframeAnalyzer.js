@@ -1,0 +1,337 @@
+import { analyzeMarket } from "./analyzer.js";
+import { generateTradeSetup } from "./setupEngine.js";
+import { generateMultiTimeframeDecision } from "../strategies/multiTimeframeDecisionEngine.js";
+
+export function analyzeMultiTimeframe({
+    candles4H,
+    candles1H,
+    candles15M,
+    candles5M
+}) {
+    if (
+        !Array.isArray(candles4H) ||
+        !Array.isArray(candles1H) ||
+        !Array.isArray(candles15M) ||
+        !Array.isArray(candles5M)
+    ) {
+        throw new Error("All four timeframes are required");
+    }
+
+    // --------------------------------------------------
+    // ANALYZE EACH TIMEFRAME
+    // --------------------------------------------------
+
+    const analysis4H = analyzeMarket(candles4H);
+    const analysis1H = analyzeMarket(candles1H);
+    const analysis15M = analyzeMarket(candles15M);
+    const analysis5M = analyzeMarket(candles5M);
+
+    // --------------------------------------------------
+    // MULTI-TIMEFRAME DECISION ENGINE
+    // --------------------------------------------------
+
+    const multiTimeframeDecision = generateMultiTimeframeDecision({
+        analysis4H,
+        analysis1H,
+        analysis15M,
+        analysis5M
+    });
+
+    // --------------------------------------------------
+    // LEGACY TRADE SETUP
+    //
+    // Keep this temporarily for debugging.
+    // It is NOT authoritative for finalSignal.
+    // --------------------------------------------------
+
+    const tradeSetup = generateTradeSetup({
+        higherTimeframe: analysis4H,
+        oneHour: analysis1H,
+        fifteenMinute: analysis15M,
+        fiveMinute: analysis5M
+    });
+
+    // --------------------------------------------------
+    // FINAL SIGNAL
+    //
+    // The decision engine is now authoritative.
+    // --------------------------------------------------
+
+    let finalSignal = "WAIT";
+    let status = "WAIT";
+
+    switch (multiTimeframeDecision.state) {
+        case "BUY_READY":
+            finalSignal = "BUY";
+            status = "BUY_READY";
+            break;
+
+        case "SELL_READY":
+            finalSignal = "SELL";
+            status = "SELL_READY";
+            break;
+
+        case "CONFLICT":
+            finalSignal = "WAIT";
+            status = "CONFLICT";
+            break;
+
+        case "WAIT_FOR_CONFIRMATION":
+            finalSignal = "WAIT";
+            status = "WAITING_FOR_CONFIRMATION";
+            break;
+
+        case "BULLISH_BIAS":
+            finalSignal = "WAIT";
+            status = "BULLISH_BIAS";
+            break;
+
+        case "BEARISH_BIAS":
+            finalSignal = "WAIT";
+            status = "BEARISH_BIAS";
+            break;
+
+        default:
+            finalSignal = "WAIT";
+            status = "WAIT";
+            break;
+    }
+
+    // --------------------------------------------------
+    // HIGHER-TIMEFRAME BIAS
+    // --------------------------------------------------
+
+    const higherTimeframeBias =
+        multiTimeframeDecision.higherTimeframeBias || "NEUTRAL";
+
+    // --------------------------------------------------
+    // SETUP DIRECTION
+    // --------------------------------------------------
+
+    const setupDirection =
+        multiTimeframeDecision.setupDirection || "NEUTRAL";
+
+    let fifteenMinuteSetup = "WAIT";
+
+    if (setupDirection === "BULLISH") {
+        fifteenMinuteSetup = "BUY";
+    }
+
+    if (setupDirection === "BEARISH") {
+        fifteenMinuteSetup = "SELL";
+    }
+
+    // --------------------------------------------------
+    // ENTRY DIRECTION
+    // --------------------------------------------------
+
+    const entryDirection =
+        multiTimeframeDecision.entryDirection || "NEUTRAL";
+
+    let fiveMinuteConfirmation = "WAIT";
+
+    if (entryDirection === "BULLISH") {
+        fiveMinuteConfirmation = "BUY";
+    }
+
+    if (entryDirection === "BEARISH") {
+        fiveMinuteConfirmation = "SELL";
+    }
+
+    // --------------------------------------------------
+    // FINAL RESPONSE
+    // --------------------------------------------------
+
+    return {
+        finalSignal,
+        status,
+
+        multiTimeframeDecision,
+
+        bias: {
+            fourHour: higherTimeframeBias,
+            oneHour: getDirectionFromAnalysis(analysis1H)
+        },
+
+        setup: {
+            fifteenMinute: fifteenMinuteSetup
+        },
+
+        entry: {
+            fiveMinute: fiveMinuteConfirmation
+        },
+
+        tradeSetup,
+
+        timeframes: {
+            "4H": analysis4H,
+            "1H": analysis1H,
+            "15M": analysis15M,
+            "5M": analysis5M
+        },
+
+        analyzedAt: new Date().toISOString()
+    };
+}
+
+
+// --------------------------------------------------
+// HELPER
+// --------------------------------------------------
+
+function getDirectionFromAnalysis(analysis) {
+    if (!analysis) {
+        return "NEUTRAL";
+    }
+
+    /*
+     * =========================================================
+     * PRIORITY 1
+     * Structure reconciliation
+     *
+     * This is the authoritative current structure state.
+     * It must override stale sequences or historical events.
+     * =========================================================
+     */
+
+    if (
+        analysis.structureReconciliation &&
+        analysis.structureReconciliation.valid &&
+        analysis.structureReconciliation.direction
+    ) {
+        const reconciliation =
+            analysis.structureReconciliation;
+
+        if (
+            reconciliation.state === "REVERSAL_CONFIRMED" ||
+            reconciliation.state === "COUNTER_TREND_CONFIRMED" ||
+            reconciliation.state === "ALIGNED"
+        ) {
+            return normalizeDirection(
+                reconciliation.direction
+            );
+        }
+    }
+
+    /*
+     * =========================================================
+     * PRIORITY 2
+     * Active confirmed event
+     * =========================================================
+     */
+
+    if (
+        analysis.activeEvent &&
+        analysis.activeEvent.active &&
+        analysis.activeEvent.confirmed &&
+        analysis.activeEvent.direction
+    ) {
+        return normalizeDirection(
+            analysis.activeEvent.direction
+        );
+    }
+
+    /*
+     * =========================================================
+     * PRIORITY 3
+     * Active confirmed sequence
+     * =========================================================
+     */
+
+    if (
+        analysis.activeSequence &&
+        analysis.activeSequence.active &&
+        analysis.activeSequence.valid &&
+        analysis.activeSequence.direction
+    ) {
+        return normalizeDirection(
+            analysis.activeSequence.direction
+        );
+    }
+
+    /*
+     * =========================================================
+     * PRIORITY 4
+     * Confirmed market sequence
+     * =========================================================
+     */
+
+    if (
+        analysis.marketSequence &&
+        analysis.marketSequence.confirmed &&
+        analysis.marketSequence.direction
+    ) {
+        return normalizeDirection(
+            analysis.marketSequence.direction
+        );
+    }
+
+    /*
+     * =========================================================
+     * PRIORITY 5
+     * Confirmed market event
+     * =========================================================
+     */
+
+    if (
+        analysis.marketEvent &&
+        analysis.marketEvent.confirmed &&
+        analysis.marketEvent.direction
+    ) {
+        return normalizeDirection(
+            analysis.marketEvent.direction
+        );
+    }
+
+    /*
+     * =========================================================
+     * PRIORITY 6
+     * Raw market structure
+     * =========================================================
+     */
+
+    if (
+        analysis.marketStructure &&
+        analysis.marketStructure.structure
+    ) {
+        return normalizeDirection(
+            analysis.marketStructure.structure
+        );
+    }
+
+    return "NEUTRAL";
+}
+
+
+/*
+ * =========================================================
+ * NORMALIZE DIRECTION
+ * =========================================================
+ */
+
+function normalizeDirection(direction) {
+    if (!direction) {
+        return "NEUTRAL";
+    }
+
+    const value =
+        String(direction).toUpperCase();
+
+    if (
+        value === "BULLISH" ||
+        value === "BUY" ||
+        value === "LONG"
+    ) {
+        return "BULLISH";
+    }
+
+    if (
+        value === "BEARISH" ||
+        value === "SELL" ||
+        value === "SHORT"
+    ) {
+        return "BEARISH";
+    }
+
+    return "NEUTRAL";
+}

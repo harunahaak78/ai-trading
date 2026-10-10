@@ -278,7 +278,11 @@ export function analyzeMarket(candles) {
     
     const obFvgRetest = detectObFvgRetest({
         candles,
+        // The retest engine needs a setup direction; without it
+        // it returns early and the retest is never evaluated.
+        direction: marketSequence?.direction || null,
         marketSequence,
+        activeSequence,
         orderBlock,
         fairValueGaps: fvgZones,
         structureReconciliation

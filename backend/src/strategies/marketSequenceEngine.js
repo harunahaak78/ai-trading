@@ -444,195 +444,53 @@ export function detectMarketSequence({
             };
 
             /*
- * =========================================================
- * V3 — FRESH REVERSAL SEQUENCE VALIDATION
- *
- * A previous CHOCH/BOS only establishes the new regime.
- * It does NOT count as the new sequence's BOS.
- *
- * New sequence must be:
- *
- * Liquidity Sweep
- *       ↓
- * Displacement
- *       ↓
- * NEW Structure Break
- *
- * All three must occur after the latest regime-changing
- * structure event.
- * =========================================================
- */
-
-if (
-    latestStructureIndex != null &&
-    latestStructureDirection &&
-    sequence.direction === latestStructureDirection
-) {
-    const sequenceBreakIndex =
-        sequence.structureBreak.index;
-
-    const sequenceBreakDirection =
-        sequence.structureBreak.direction;
-
-    // The new sequence BOS must happen AFTER
-    // the latest reversal/regime event.
-    if (
-        sequenceBreakIndex <= latestStructureIndex
-    ) {
-        result.reasons.push(
-            `${sequence.direction} sequence rejected: structure break ${sequenceBreakIndex} is not newer than latest ${latestStructureDirection} structure event ${latestStructureIndex}`
-        );
-
-        continue;
-    }
-
-    // Structure confirmation must agree with sequence direction.
-    if (
-        sequenceBreakDirection !==
-        sequence.direction
-    ) {
-        result.reasons.push(
-            `${sequence.direction} sequence rejected: structure confirmation direction is ${sequenceBreakDirection}`
-        );
-
-        continue;
-    }
-
-    // Displacement must happen after the regime change.
-    if (
-        sequence.displacement.index <=
-        latestStructureIndex
-    ) {
-        result.reasons.push(
-            `${sequence.direction} sequence rejected: displacement occurred before latest structure event ${latestStructureIndex}`
-        );
-
-        continue;
-    }
-
-    // Liquidity sweep must happen after the regime change.
-    if (
-        sequence.sweep.index <=
-        latestStructureIndex
-    ) {
-        result.reasons.push(
-            `${sequence.direction} sequence rejected: liquidity sweep occurred before latest structure event ${latestStructureIndex}`
-        );
-
-        continue;
-    }
-
-    result.reasons.push(
-        `Fresh ${sequence.direction} reversal sequence confirmed after structure event ${latestStructureIndex}`
-    );
-}
-
-            /*
              * -----------------------------------------------------
-             * Current regime validation
+             * FRESH REVERSAL SEQUENCE VALIDATION
+             *
+             * A previous CHOCH/BOS only establishes the new regime.
+             * It does NOT count as the new sequence's BOS.
+             *
+             * A sequence that agrees with the latest structure event
+             * must be fresh. Sweep, displacement and structure break
+             * must all occur AFTER that event:
+             *
+             *   Liquidity sweep -> Displacement -> NEW structure break
              * -----------------------------------------------------
              */
-            /*
- * =========================================================
- * V3 REVERSAL CONFIRMATION
- *
- * A reversal structure event does NOT automatically count
- * as the structure break for the new sequence.
- *
- * Example:
- *
- * BEARISH CHOCH @ 195
- *
- * New bearish sequence:
- *
- * BUY_SIDE_SWEEP @ 198
- *        ↓
- * BEARISH DISPLACEMENT @ 199
- *        ↓
- * BEARISH BOS @ 202
- *
- * The new BOS must occur AFTER the previous reversal event.
- * =========================================================
- */
 
-if (
-    latestStructureIndex != null &&
-    latestStructureDirection &&
-    sequence.direction === latestStructureDirection
-) {
-    const newSequenceBreakIndex =
-        sequence.structureBreak.index;
+            if (
+                latestStructureIndex != null &&
+                latestStructureDirection &&
+                sequence.direction === latestStructureDirection
+            ) {
+                const breakIndex = sequence.structureBreak.index;
+                const breakDirection = sequence.structureBreak.direction;
 
-    const newSequenceBreakDirection =
-        sequence.structureBreak.direction;
+                let rejection = null;
 
-    /*
-     * The new structure confirmation must happen after
-     * the latest structure event that established the
-     * current regime.
-     */
+                if (breakIndex <= latestStructureIndex) {
+                    rejection = `structure break ${breakIndex} is not newer than latest ${latestStructureDirection} structure event ${latestStructureIndex}`;
+                } else if (breakDirection !== sequence.direction) {
+                    rejection = `structure confirmation direction is ${breakDirection}`;
+                } else if (sequence.displacement.index <= latestStructureIndex) {
+                    rejection = `displacement occurred before latest structure event ${latestStructureIndex}`;
+                } else if (sequence.sweep.index <= latestStructureIndex) {
+                    rejection = `liquidity sweep occurred before latest structure event ${latestStructureIndex}`;
+                }
 
-    if (
-        newSequenceBreakIndex <= latestStructureIndex
-    ) {
-        result.reasons.push(
-            `${sequence.direction} sequence rejected because its structure break at ${newSequenceBreakIndex} is not newer than the latest ${latestStructureDirection} structure event at ${latestStructureIndex}`
-        );
+                if (rejection) {
+                    result.reasons.push(
+                        `${sequence.direction} sequence rejected: ${rejection}`
+                    );
 
-        continue;
-    }
+                    continue;
+                }
 
-    /*
-     * The confirmation must also have the same direction
-     * as the new sequence.
-     */
+                result.reasons.push(
+                    `Fresh ${sequence.direction} reversal sequence confirmed after structure event ${latestStructureIndex}`
+                );
+            }
 
-    if (
-        newSequenceBreakDirection !==
-        sequence.direction
-    ) {
-        result.reasons.push(
-            `${sequence.direction} sequence rejected because structure confirmation direction is ${newSequenceBreakDirection}`
-        );
-
-        continue;
-    }
-
-    /*
-     * The displacement must also occur after the previous
-     * regime-changing structure event.
-     */
-
-    if (
-        sequence.displacement.index <=
-        latestStructureIndex
-        ) {
-            result.reasons.push(
-                `${sequence.direction} sequence rejected because displacement occurred before the latest structure reversal at ${latestStructureIndex}`
-            );
-
-            continue;
-        }
-
-        /*
-        * The sweep must also be fresh.
-        */
-
-        if (
-            sequence.sweep.index <=
-            latestStructureIndex
-        ) {
-            result.reasons.push(
-                `${sequence.direction} sequence rejected because liquidity sweep occurred before the latest structure reversal at ${latestStructureIndex}`
-            );
-
-            continue;
-        }
-
-        result.reasons.push(
-            `Fresh ${sequence.direction} reversal sequence confirmed after structure event ${latestStructureIndex}`
-        );
-        }   
 
             if (
                 latestStructureIndex != null &&

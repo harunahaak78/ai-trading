@@ -49,11 +49,37 @@
         </div>
     </header>
 
-    <main class="wrap" id="view"></main>
+    <main class="wrap" id="view">
+        <!--
+            Replaced as soon as the dashboard starts. It only stays visible
+            when the scripts could not run, for example when this file was
+            opened directly instead of through the backend.
+        -->
+        <div class="notice error" id="boot-note" hidden>
+            <p><strong>The dashboard did not start.</strong></p>
+            <p>
+                Open it through the backend: run <code>npm start</code> in the
+                <code>backend</code> folder, then go to
+                <code>http://localhost:5000</code>.
+            </p>
+            <p>
+                Opening <code>index.html</code> as a file does not work, because
+                browsers block the page's scripts when they come from a file.
+            </p>
+        </div>
+    </main>
 
     <footer class="wrap foot">
         <p>This is automated analysis from fixed rules, not financial advice. Live candles come from Binance.</p>
     </footer>
+
+    <script>
+        // Show the note only if the dashboard has not replaced it after a moment.
+        setTimeout(function () {
+            var note = document.getElementById("boot-note");
+            if (note) note.hidden = false;
+        }, 1500);
+    </script>
 
     <script type="module" src="src/main.js"></script>
 </body>

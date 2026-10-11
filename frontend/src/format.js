@@ -20,9 +20,18 @@ export function capitalize(text) {
 }
 
 // "WAITING_FOR_RETEST" -> "Waiting for retest"
+const ACRONYMS = new Set(["bos", "choch", "fvg", "ob"]);
+
+// "SELL_SIDE_SWEEP_BULLISH_BOS" -> "Sell side sweep bullish BOS"
 export function humanize(code) {
     if (!code) return "None";
-    return capitalize(String(code).toLowerCase().replace(/_/g, " "));
+
+    const words = String(code)
+        .toLowerCase()
+        .split("_")
+        .map(word => (ACRONYMS.has(word) ? word.toUpperCase() : word));
+
+    return capitalize(words.join(" "));
 }
 
 // "BULLISH" -> "bullish"; anything unknown -> "neutral"

@@ -40,28 +40,71 @@ export async function loadAnalysis({ source, symbol, signal }) {
         return response.json();
     }
 
-    const url =
-        `${API_BASE}/api/market/analyze/crypto/multi?symbol=${encodeURIComponent(symbol)}`;
+    const path =
+        `/api/market/analyze/crypto/multi?symbol=${encodeURIComponent(symbol)}`;
 
-    let response;
+    let lastFailure = null;
 
-    try {
-        response = await fetch(url, { signal });
-    } catch (error) {
-        if (error.name === "AbortError") throw error;
+    for (const base of backendCandidates()) {
+        let response;
 
-        throw new Error(`Could not reach the backend at ${API_BASE || location.origin}.`);
+        try {
+            response = await fetch(`${base}${path}`, { signal });
+        } catch (error) {
+            if (error.name === "AbortError") throw error;
+
+            lastFailure = `Could not reach the backend at ${base || location.origin}.`;
+            continue;
+        }
+
+        const body = await response.json().catch(() => null);
+
+        // The backend answered. Any reply with its JSON shape is final,
+        // even an error such as Binance refusing a symbol.
+        if (body && typeof body.success === "boolean") {
+            if (!body.success) {
+                throw new Error(explain(body.message) || `The backend answered with status ${response.status}.`);
+            }
+
+            workingBase = base;
+            return body;
+        }
+
+        // Not our backend (for example a plain file server answering 404).
+        lastFailure =
+            `${base || location.origin} answered with status ${response.status} but it is not the trading backend.`;
     }
 
-    const body = await response.json().catch(() => null);
+    throw new Error(lastFailure || "Could not reach the backend.");
+}
 
-    if (!response.ok || !body || !body.success) {
-        throw new Error(
-            body && body.message
-                ? explain(body.message)
-                : `The backend answered with status ${response.status}.`
-        );
+/*
+ * Where to look for the backend, in order.
+ *
+ * Normally the page and the API share one address, because the backend
+ * serves the page. When the page is opened from another local port
+ * (for example an editor's live preview), also try the backend's default
+ * address so it still connects.
+ */
+
+const DEFAULT_BACKEND = "http://localhost:5000";
+
+let workingBase = null;
+
+function backendCandidates() {
+    if (API_BASE) return [API_BASE];
+
+    const bases = [""];
+
+    const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+
+    if (isLocal && location.port !== "5000") {
+        bases.push(DEFAULT_BACKEND);
     }
 
-    return body;
+    if (workingBase !== null && bases.includes(workingBase)) {
+        return [workingBase, ...bases.filter(base => base !== workingBase)];
+    }
+
+    return bases;
 }

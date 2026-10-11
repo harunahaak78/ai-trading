@@ -255,7 +255,7 @@ export function generateMultiTimeframeDecision({
             result.confidence += 2;
 
             result.reasons.push(
-                `15M OB/FVG retest confirmed for ${retest15M.direction || direction15M}`
+                `15M first test of the OB/FVG zone held for ${retest15M.direction || direction15M}`
             );
         } else if (retest15M.detected) {
             result.reasons.push(
@@ -364,7 +364,7 @@ export function generateMultiTimeframeDecision({
             result.retestStatus = "CONFIRMED";
 
             result.reasons.push(
-                `5M ${direction5M} OB/FVG retest confirmed`
+                `5M ${direction5M} first test of the OB/FVG zone held`
             );
         } else if (retest5M.detected) {
             result.retestStatus =
@@ -374,7 +374,7 @@ export function generateMultiTimeframeDecision({
             result.direction = "NEUTRAL";
 
             result.reasons.push(
-                `5M ${direction5M} setup detected but OB/FVG retest is not confirmed`
+                `5M ${direction5M} setup detected but the first test of the OB/FVG zone has not held yet`
             );
 
             return result;
@@ -383,7 +383,7 @@ export function generateMultiTimeframeDecision({
             result.direction = "NEUTRAL";
 
             result.reasons.push(
-                `5M ${direction5M} structure confirmed but no valid OB/FVG retest`
+                `5M ${direction5M} structure confirmed but no OB/FVG zone to test`
             );
 
             return result;
@@ -393,7 +393,7 @@ export function generateMultiTimeframeDecision({
         result.direction = "NEUTRAL";
 
         result.reasons.push(
-            "5M OB/FVG retest analysis is unavailable"
+            "5M OB/FVG zone analysis is unavailable"
         );
 
         return result;

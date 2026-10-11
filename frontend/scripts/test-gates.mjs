@@ -35,8 +35,8 @@ assert.equal(buildGates({ state: "WAITING_FOR_RETEST" }).tone, "wait");
 assert.equal(buildGates(undefined).gates[0].status, "blocked"); // never throws on missing data
 
 // retest wording
-const d = { state: "WAITING_FOR_RETEST", retestStatus: "RETEST_ACTIVE", higherTimeframeBias: "BULLISH", timeframes: tf("BULLISH","BULLISH","BULLISH","BULLISH") };
-assert.match(buildGates(d).gates[3].detail, /both/);
+const d = { state: "WAITING_FOR_RETEST", retestStatus: "FIRST_TEST_IN_PROGRESS", higherTimeframeBias: "BULLISH", timeframes: tf("BULLISH","BULLISH","BULLISH","BULLISH") };
+assert.match(buildGates(d).gates[3].detail, /first time/);
 // counter-trend wording on setup gate
 const c = { state: "WAITING_FOR_SETUP", higherTimeframeBias: "BULLISH", timeframes: tf("BULLISH","BULLISH","BEARISH","NEUTRAL") };
 assert.match(buildGates(c).gates[1].detail, /against the bullish bias/);

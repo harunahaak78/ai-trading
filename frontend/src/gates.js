@@ -16,7 +16,7 @@ export const GATES = [
     { id: "bias", name: "Bias", timeframe: "4H and 1H" },
     { id: "setup", name: "Setup", timeframe: "15M" },
     { id: "confirmation", name: "Confirmation", timeframe: "5M" },
-    { id: "retest", name: "Retest", timeframe: "5M" },
+    { id: "retest", name: "First test", timeframe: "5M" },
     { id: "entry", name: "Entry", timeframe: "" }
 ];
 
@@ -74,10 +74,18 @@ export function blockedGateIndex(decision) {
 
 function retestDetail(status) {
     switch (status) {
+        case "WAITING_FOR_FIRST_TEST":
         case "WAITING_FOR_RETEST":
-            return "Waiting for price to return to the order block or fair value gap.";
+            return "Waiting for price to test the order block or fair value gap for the first time.";
+        case "FIRST_TEST_IN_PROGRESS":
         case "RETEST_ACTIVE":
-            return "Price is in one zone. It needs to be inside both the order block and the fair value gap.";
+            return "Price is testing the zone for the first time. Waiting for it to hold.";
+        case "FIRST_TEST_PASSED":
+            return "The first test already held a while ago, so that entry has passed.";
+        case "ALREADY_TESTED":
+            return "The zone was already tested once. A return to it is a retest, which is not used.";
+        case "ZONE_BROKEN":
+            return "Price closed through the zone, so it did not hold.";
         case "NO_RETEST_ZONE":
         case "NO_RETEST":
         case "NONE":
@@ -89,7 +97,7 @@ function retestDetail(status) {
         case "SEQUENCE_STALE":
             return "The earlier sequence is too old to trade.";
         default:
-            return "No valid retest on 5M yet.";
+            return "No valid first test on 5M yet.";
     }
 }
 
@@ -223,9 +231,9 @@ export function describeState(decision) {
 
     switch (state) {
         case "BUY_READY":
-            return "Every gate passed. Bullish bias, a 15M setup, and a confirmed 5M retest.";
+            return "Every gate passed. Bullish bias, a 15M setup, and the first test of the 5M zone holding.";
         case "SELL_READY":
-            return "Every gate passed. Bearish bias, a 15M setup, and a confirmed 5M retest.";
+            return "Every gate passed. Bearish bias, a 15M setup, and the first test of the 5M zone holding.";
         case "NO_BIAS":
             return "No clear direction on 4H or 1H, so there is nothing to trade yet.";
         case "CONFLICT": {
@@ -246,7 +254,7 @@ export function describeState(decision) {
         case "BEARISH_SETUP":
             return `The 15M ${bias} setup is in place. Waiting for 5M to confirm.`;
         case "WAITING_FOR_RETEST":
-            return `Direction is ${bias} and 5M agrees. Waiting for price to retest the order block and fair value gap.`;
+            return `Direction is ${bias} and 5M agrees. Waiting for the first test of the order block and fair value gap to hold.`;
         case "WAITING_FOR_HTF_ZONE":
             return `Direction is ${bias} and 5M agrees, but price is not at a 4H/1H zone. Waiting for it to return to one.`;
         case "COUNTER_TREND_BULLISH":

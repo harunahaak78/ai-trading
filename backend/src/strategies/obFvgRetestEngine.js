@@ -354,53 +354,43 @@ export function detectObFvgRetest({
     }
 
     // --------------------------------------------------
-    // RETEST CONFIRMATION
+    // FIRST TEST AND HOLD
+    //
+    // The entry is the FIRST time price trades into the zone, once
+    // it holds. A later return to the same zone is a retest and is
+    // not used. The zone is the OB/FVG overlap when they overlap,
+    // otherwise the order block (or the FVG when there is no OB).
     // --------------------------------------------------
-
-    if (
-        result.priceInOrderBlock &&
-        result.priceInFVG
-    ) {
-        result.confirmed = true;
-
-        result.status =
-            "RETEST_CONFIRMED";
-
-        result.score += 2;
-
-        result.reasons.push(
-            "Price is inside both OB and FVG"
-        );
-
-        return result;
-    }
-
-    if (
-        result.priceInOrderBlock ||
-        result.priceInFVG
-    ) {
-        result.retestActive = true;
-
-        result.status =
-            "RETEST_ACTIVE";
-
-        result.reasons.push(
-            "Price has entered a valid retest zone"
-        );
-
-        return result;
-    }
 
     if (
         result.orderBlock ||
         result.fairValueGap
     ) {
-        result.status =
-            "WAITING_FOR_RETEST";
+        const zone = pickZone(result);
 
-        result.reasons.push(
-            "Waiting for price to return to the zone"
-        );
+        const firstTest = evaluateFirstTest({
+            candles,
+            direction,
+            low: zone.low,
+            high: zone.high,
+            startIndex: zone.startIndex
+        });
+
+        result.zone = {
+            low: zone.low,
+            high: zone.high,
+            source: zone.source
+        };
+
+        result.firstTest = firstTest;
+        result.status = firstTest.status;
+
+        if (firstTest.status === "FIRST_TEST_HELD") {
+            result.confirmed = true;
+            result.score += 2;
+        }
+
+        result.reasons.push(firstTest.reason);
 
         return result;
     }
@@ -409,6 +399,138 @@ export function detectObFvgRetest({
         "NO_RETEST_ZONE";
 
     return result;
+}
+
+
+// ======================================================
+// FIRST TEST EVALUATION
+// ======================================================
+
+const FIRST_TEST_MAX_BARS = 12;
+
+function pickZone(result) {
+    const ob = result.orderBlock;
+    const fvg = result.fairValueGap;
+
+    if (ob && fvg && zonesOverlap(ob.low, ob.high, fvg.bottom, fvg.top)) {
+        return {
+            low: Math.max(ob.low, fvg.bottom),
+            high: Math.min(ob.high, fvg.top),
+            startIndex: Math.max((ob.index ?? 0) + 1, fvg.index ?? 0),
+            source: "OB_FVG_OVERLAP"
+        };
+    }
+
+    if (ob) {
+        return {
+            low: ob.low,
+            high: ob.high,
+            startIndex: (ob.index ?? 0) + 1,
+            source: "ORDER_BLOCK"
+        };
+    }
+
+    return {
+        low: fvg.bottom,
+        high: fvg.top,
+        startIndex: fvg.index ?? 0,
+        source: "FVG"
+    };
+}
+
+// Walks the candles after the zone formed and reports whether price
+// has tested it yet, and whether that first test held.
+function evaluateFirstTest({ candles, direction, low, high, startIndex }) {
+    const bullish = direction === "BULLISH";
+    const last = candles.length - 1;
+    const from = Math.max(startIndex + 1, 0);
+
+    const touches = c => bullish ? c.low <= high : c.high >= low;
+    const breaks = c => bullish ? c.close < low : c.close > high;
+    const clear = c => bullish ? c.low > high : c.high < low;
+
+    let firstTouch = -1;
+    let episodes = 0;
+    let inside = false;
+    let broken = false;
+    let lastTouchIndex = -1;
+
+    for (let i = from; i <= last; i++) {
+        const c = candles[i];
+
+        if (touches(c)) {
+            if (!inside) episodes += 1;
+            inside = true;
+            if (firstTouch === -1) firstTouch = i;
+            lastTouchIndex = i;
+            if (breaks(c)) broken = true;
+        } else if (clear(c)) {
+            inside = false;
+        }
+    }
+
+    if (firstTouch === -1) {
+        return {
+            status: "WAITING_FOR_FIRST_TEST",
+            held: false,
+            reason: "Price has not tested the zone yet. Waiting for the first test"
+        };
+    }
+
+    if (broken) {
+        return {
+            status: "ZONE_BROKEN",
+            held: false,
+            index: firstTouch,
+            reason: "Price closed through the zone, so it did not hold"
+        };
+    }
+
+    if (episodes > 1) {
+        return {
+            status: "ALREADY_TESTED",
+            held: false,
+            index: firstTouch,
+            reason: "The zone was already tested once. A later return is a retest and is not used"
+        };
+    }
+
+    const bars = last - firstTouch;
+
+    if (bars > FIRST_TEST_MAX_BARS) {
+        return {
+            status: "FIRST_TEST_PASSED",
+            held: true,
+            index: firstTouch,
+            bars,
+            reason: `The first test held ${bars} bars ago. The entry has passed`
+        };
+    }
+
+    // Held: the test candle(s) closed back in the trade direction, or
+    // price has already moved clear of the zone in that direction.
+    const touch = candles[lastTouchIndex];
+    const closedWithBias = bullish ? touch.close > touch.open : touch.close < touch.open;
+    const lastClose = candles[last].close;
+    const movedAway = clear(candles[last]) || (bullish ? lastClose > high : lastClose < low);
+
+    if (closedWithBias || movedAway) {
+        return {
+            status: "FIRST_TEST_HELD",
+            held: true,
+            index: firstTouch,
+            bars,
+            reason: "Price tested the zone for the first time and held"
+        };
+    }
+
+    return {
+        status: "FIRST_TEST_IN_PROGRESS",
+        held: false,
+        index: firstTouch,
+        bars,
+        reason: "Price is testing the zone for the first time. Waiting for it to hold"
+    };
 }
 
 

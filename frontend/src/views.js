@@ -328,6 +328,12 @@ const SETUP_TEXT = {
 };
 
 const RETEST_TEXT = {
+    FIRST_TEST_HELD: "First test held",
+    FIRST_TEST_IN_PROGRESS: "Testing now",
+    WAITING_FOR_FIRST_TEST: "Waiting",
+    FIRST_TEST_PASSED: "Entry passed",
+    ALREADY_TESTED: "Already tested",
+    ZONE_BROKEN: "Broken",
     RETEST_CONFIRMED: "Confirmed",
     RETEST_ACTIVE: "In one zone",
     WAITING_FOR_RETEST: "Waiting",
@@ -428,7 +434,7 @@ export function renderCompare(data) {
         row("Sequence", col => sequenceText(col.a, col.d.sequence)) +
         row("Active event", col => esc(humanize(col.d.activeEvent))) +
         row("Setup confirmation", col => setupText(col.a)) +
-        row("Order block and FVG retest", col => esc(RETEST_TEXT[col.a?.obFvgRetest?.status] || humanize(col.a?.obFvgRetest?.status))) +
+        row("Order block and FVG first test", col => esc(RETEST_TEXT[col.a?.obFvgRetest?.status] || humanize(col.a?.obFvgRetest?.status))) +
         row("Indicators", col => indicatorText(col.a)) +
         `</tbody></table></div>` +
         `</section>`

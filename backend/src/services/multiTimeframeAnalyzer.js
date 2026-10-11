@@ -1,5 +1,5 @@
 import { analyzeMarket } from "./analyzer.js";
-import { generateTradeSetup } from "./setupEngine.js";
+import { generateTradeSetup, generateTradeLevels } from "./setupEngine.js";
 import { generateMultiTimeframeDecision } from "../strategies/multiTimeframeDecisionEngine.js";
 
 export function analyzeMultiTimeframe({
@@ -38,13 +38,26 @@ export function analyzeMultiTimeframe({
     });
 
     // --------------------------------------------------
+    // TRADE LEVELS
+    //
+    // Driven by the decision engine, so entry, stop and
+    // targets only exist when the final signal is BUY or SELL.
+    // --------------------------------------------------
+
+    const tradeSetup = generateTradeLevels({
+        decision: multiTimeframeDecision,
+        fifteenMinute: analysis15M,
+        fiveMinute: analysis5M
+    });
+
+    // --------------------------------------------------
     // LEGACY TRADE SETUP
     //
     // Keep this temporarily for debugging.
     // It is NOT authoritative for finalSignal.
     // --------------------------------------------------
 
-    const tradeSetup = generateTradeSetup({
+    const legacyTradeSetup = generateTradeSetup({
         higherTimeframe: analysis4H,
         oneHour: analysis1H,
         fifteenMinute: analysis15M,
@@ -163,6 +176,8 @@ export function analyzeMultiTimeframe({
 
         tradeSetup,
 
+        legacyTradeSetup,
+
         timeframes: {
             "4H": analysis4H,
             "1H": analysis1H,
@@ -170,7 +185,31 @@ export function analyzeMultiTimeframe({
             "5M": analysis5M
         },
 
+        // Recent candles for charting. Zone and swing indices in
+        // each timeframe's analysis refer to the full candle array,
+        // so `offset` is the index of the first candle sent.
+        chart: {
+            "4H": toChart(candles4H),
+            "1H": toChart(candles1H),
+            "15M": toChart(candles15M),
+            "5M": toChart(candles5M)
+        },
+
         analyzedAt: new Date().toISOString()
+    };
+}
+
+
+// --------------------------------------------------
+// CHART DATA
+// --------------------------------------------------
+
+function toChart(candles, size = 120) {
+    const offset = Math.max(0, candles.length - size);
+
+    return {
+        offset,
+        candles: candles.slice(offset)
     };
 }
 

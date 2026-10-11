@@ -173,124 +173,158 @@ export function generateTradeSetup({
 
     /*
      * ------------------------------------------------
-     * 7. ENTRY PRICE
+     * 7-12. ENTRY, STOP, TARGETS, RISK / REWARD
      * ------------------------------------------------
      */
 
-    const entry =
-        fiveMinute.price;
+    return applyLevels({
+        result,
+        direction,
+        fifteenMinute,
+        fiveMinute,
+        readyReason: "All timeframe conditions confirmed"
+    });
+}
 
-    result.entry = entry;
 
-    /*
-     * ------------------------------------------------
-     * 8. STOP LOSS
-     * ------------------------------------------------
-     */
+/*
+ * ==========================================================
+ * TRADE LEVELS DRIVEN BY THE MULTI-TIMEFRAME DECISION
+ * ==========================================================
+ *
+ * The decision engine is authoritative for direction. Levels
+ * are only produced when it says BUY_READY or SELL_READY, so
+ * the numbers can never disagree with the final signal.
+ */
 
-    if (direction === "BUY") {
+export function generateTradeLevels({
+    decision,
+    fifteenMinute,
+    fiveMinute
+}) {
+    const result = {
+        direction: "WAIT",
+        status: "NO_SETUP",
 
-        const demandZone =
-            fifteenMinute.supplyDemand;
+        entry: null,
+        stopLoss: null,
+        takeProfit1: null,
+        takeProfit2: null,
 
-        if (
-            demandZone.detected &&
-            demandZone.type === "DEMAND"
-        ) {
-            result.stopLoss =
-                demandZone.zone.low;
-        } else {
-            result.stopLoss =
-                entry * 0.995;
-        }
-    }
+        riskReward: null,
 
-    if (direction === "SELL") {
+        reasons: []
+    };
 
-        const supplyZone =
-            fifteenMinute.supplyDemand;
+    const state = decision?.state;
 
-        if (
-            supplyZone.detected &&
-            supplyZone.type === "SUPPLY"
-        ) {
-            result.stopLoss =
-                supplyZone.zone.high;
-        } else {
-            result.stopLoss =
-                entry * 1.005;
-        }
-    }
-
-    /*
-     * ------------------------------------------------
-     * 9. RISK
-     * ------------------------------------------------
-     */
-
-    const risk =
-        Math.abs(
-            entry -
-            result.stopLoss
-        );
-
-    if (risk <= 0) {
-        result.direction = "WAIT";
-        result.status = "INVALID_SETUP";
-
+    if (state !== "BUY_READY" && state !== "SELL_READY") {
         result.reasons.push(
-            "Invalid risk calculation"
+            state
+                ? `No trade levels: decision state is ${state}`
+                : "No trade levels: no decision available"
         );
 
         return result;
     }
 
-    /*
-     * ------------------------------------------------
-     * 10. TAKE PROFITS
-     * ------------------------------------------------
-     */
+    const direction =
+        state === "BUY_READY"
+            ? "BUY"
+            : "SELL";
+
+    result.direction = direction;
+
+    return applyLevels({
+        result,
+        direction,
+        fifteenMinute,
+        fiveMinute,
+        readyReason: "Levels derived from the multi-timeframe decision"
+    });
+}
+
+
+/*
+ * ==========================================================
+ * SHARED LEVEL CALCULATION
+ * ==========================================================
+ *
+ * Entry   = latest 5M price
+ * Stop    = far edge of the 15M demand/supply zone, but only if
+ *           it sits on the correct side of entry. Otherwise a
+ *           0.5% stop is used.
+ * Targets = 2R and 3R
+ */
+
+function applyLevels({
+    result,
+    direction,
+    fifteenMinute,
+    fiveMinute,
+    readyReason
+}) {
+    const entry = fiveMinute.price;
+
+    result.entry = entry;
+
+    const zone = fifteenMinute.supplyDemand;
 
     if (direction === "BUY") {
+        const zoneStop =
+            zone &&
+            zone.detected &&
+            zone.type === "DEMAND" &&
+            zone.zone
+                ? zone.zone.low
+                : null;
 
-        result.takeProfit1 =
-            entry + risk * 2;
+        result.stopLoss =
+            zoneStop != null && zoneStop < entry
+                ? zoneStop
+                : entry * 0.995;
+    } else {
+        const zoneStop =
+            zone &&
+            zone.detected &&
+            zone.type === "SUPPLY" &&
+            zone.zone
+                ? zone.zone.high
+                : null;
 
-        result.takeProfit2 =
-            entry + risk * 3;
+        result.stopLoss =
+            zoneStop != null && zoneStop > entry
+                ? zoneStop
+                : entry * 1.005;
     }
 
-    if (direction === "SELL") {
+    const risk = Math.abs(entry - result.stopLoss);
 
-        result.takeProfit1 =
-            entry - risk * 2;
+    if (!(risk > 0)) {
+        result.direction = "WAIT";
+        result.status = "INVALID_SETUP";
 
-        result.takeProfit2 =
-            entry - risk * 3;
+        result.reasons.push("Invalid risk calculation");
+
+        return result;
     }
 
-    /*
-     * ------------------------------------------------
-     * 11. RISK / REWARD
-     * ------------------------------------------------
-     */
+    if (direction === "BUY") {
+        result.takeProfit1 = entry + risk * 2;
+        result.takeProfit2 = entry + risk * 3;
+    } else {
+        result.takeProfit1 = entry - risk * 2;
+        result.takeProfit2 = entry - risk * 3;
+    }
 
     result.riskReward = {
         tp1: 2,
         tp2: 3
     };
 
-    /*
-     * ------------------------------------------------
-     * 12. FINAL SETUP
-     * ------------------------------------------------
-     */
-
     result.status = "READY";
 
-    result.reasons.push(
-        "All timeframe conditions confirmed"
-    );
+    result.reasons.push(readyReason);
 
     return result;
 }

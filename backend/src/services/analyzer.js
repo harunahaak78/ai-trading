@@ -63,7 +63,7 @@ import { reconcileMarketStructure } from "../strategies/structureReconciliationE
 
 
 
-export function analyzeMarket(candles) {
+export function analyzeMarket(candles, options = {}) {
 
     if (!Array.isArray(candles)) {
         throw new Error(
@@ -107,7 +107,9 @@ export function analyzeMarket(candles) {
      */
 
     const liquidityMap =
-        buildLiquidityMap(candles);
+        buildLiquidityMap(candles, {
+            equalTolerance: options.equalTolerance
+        });
 
 
     /*

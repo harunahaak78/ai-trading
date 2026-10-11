@@ -56,6 +56,14 @@ export function directionGlyph(direction) {
     return "–";
 }
 
+// Forex prices are quoted to a fifth decimal (a pipette), so the page
+// needs to know which market it is showing.
+let priceMarket = "crypto";
+
+export function setPriceMarket(market) {
+    priceMarket = market === "forex" ? "forex" : "crypto";
+}
+
 export function formatPrice(value) {
     if (value == null || Number.isNaN(Number(value))) return "–";
 
@@ -63,9 +71,16 @@ export function formatPrice(value) {
     const abs = Math.abs(n);
 
     let digits = 2;
-    if (abs < 1) digits = 5;
-    else if (abs < 10) digits = 4;
-    else if (abs < 1000) digits = 3;
+
+    if (priceMarket === "forex") {
+        // EUR/USD 1.08234    USD/JPY 149.623
+        if (abs < 10) digits = 5;
+        else if (abs < 1000) digits = 3;
+    } else {
+        if (abs < 1) digits = 5;
+        else if (abs < 10) digits = 4;
+        else if (abs < 1000) digits = 3;
+    }
 
     return n.toLocaleString("en-US", {
         minimumFractionDigits: digits,

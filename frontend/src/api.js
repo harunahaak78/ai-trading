@@ -1,11 +1,12 @@
 /*
- * Loads the multi-timeframe analysis from the backend, or a bundled
- * sample.
+ * Talks to the backend, or loads a bundled sample.
  *
  * The API address is the page's own origin by default, because the
  * backend serves this dashboard. To point the page at a backend
  * somewhere else, add ?api=http://localhost:5000 to the URL.
  */
+
+import { TIMEFRAMES } from "./live.js";
 
 const params = new URLSearchParams(location.search);
 
@@ -27,55 +28,6 @@ function explain(message) {
     }
 
     return text;
-}
-
-export async function loadAnalysis({ source, symbol, signal }) {
-    if (source !== "live") {
-        const response = await fetch(`demo/${source}.json`, { signal });
-
-        if (!response.ok) {
-            throw new Error("The sample data file is missing.");
-        }
-
-        return response.json();
-    }
-
-    const path =
-        `/api/market/analyze/crypto/multi?symbol=${encodeURIComponent(symbol)}`;
-
-    let lastFailure = null;
-
-    for (const base of backendCandidates()) {
-        let response;
-
-        try {
-            response = await fetch(`${base}${path}`, { signal });
-        } catch (error) {
-            if (error.name === "AbortError") throw error;
-
-            lastFailure = `Could not reach the backend at ${base || location.origin}.`;
-            continue;
-        }
-
-        const body = await response.json().catch(() => null);
-
-        // The backend answered. Any reply with its JSON shape is final,
-        // even an error such as Binance refusing a symbol.
-        if (body && typeof body.success === "boolean") {
-            if (!body.success) {
-                throw new Error(explain(body.message) || `The backend answered with status ${response.status}.`);
-            }
-
-            workingBase = base;
-            return body;
-        }
-
-        // Not our backend (for example a plain file server answering 404).
-        lastFailure =
-            `${base || location.origin} answered with status ${response.status} but it is not the trading backend.`;
-    }
-
-    throw new Error(lastFailure || "Could not reach the backend.");
 }
 
 /*
@@ -107,4 +59,100 @@ function backendCandidates() {
     }
 
     return bases;
+}
+
+/*
+ * GET a backend path and return its JSON. Throws an Error with a
+ * plain-language message; `retryAfterMs` is set when the server asked
+ * to be left alone for a while.
+ */
+async function request(path, { signal } = {}) {
+    let lastFailure = null;
+
+    for (const base of backendCandidates()) {
+        let response;
+
+        try {
+            response = await fetch(`${base}${path}`, { signal });
+        } catch (error) {
+            if (error.name === "AbortError") throw error;
+
+            lastFailure = `Could not reach the backend at ${base || location.origin}.`;
+            continue;
+        }
+
+        const body = await response.json().catch(() => null);
+
+        // The backend answered. Any reply with its JSON shape is final,
+        // even an error such as Binance refusing a symbol.
+        if (body && typeof body.success === "boolean") {
+            if (!body.success) {
+                const error = new Error(
+                    explain(body.message) ||
+                    `The backend answered with status ${response.status}.`
+                );
+
+                error.status = response.status;
+                error.retryAfterMs = body.retryAfterMs || 0;
+
+                throw error;
+            }
+
+            workingBase = base;
+            return body;
+        }
+
+        // Not our backend (for example a plain file server answering 404).
+        lastFailure =
+            `${base || location.origin} answered with status ${response.status} but it is not the trading backend.`;
+    }
+
+    throw new Error(lastFailure || "Could not reach the backend.");
+}
+
+/* ---------- public calls ---------- */
+
+export async function loadAnalysis({ source, market, symbol, signal }) {
+    if (source !== "live") {
+        const response = await fetch(`demo/${source}.json`, { signal });
+
+        if (!response.ok) {
+            throw new Error("The sample data file is missing.");
+        }
+
+        return response.json();
+    }
+
+    return request(
+        `/api/market/analyze/multi?market=${encodeURIComponent(market)}` +
+        `&symbol=${encodeURIComponent(symbol)}`,
+        { signal }
+    );
+}
+
+// The newest `limit` candles, or the `limit` candles before `before`.
+export async function loadCandles({ market, symbol, tf, limit, before, signal }) {
+    const interval = TIMEFRAMES[tf]?.api;
+
+    if (!interval) {
+        throw new Error(`Unknown timeframe ${tf}.`);
+    }
+
+    return request(
+        `/api/market/candles?market=${encodeURIComponent(market)}` +
+        `&symbol=${encodeURIComponent(symbol)}` +
+        `&interval=${interval}` +
+        `&limit=${limit}` +
+        (before ? `&before=${before}` : ""),
+        { signal }
+    );
+}
+
+// Pair lists and refresh speeds. The page works without it.
+export async function loadConfig() {
+    try {
+        return await request("/api/market/config");
+    } catch {
+        return null;
+    }
 }

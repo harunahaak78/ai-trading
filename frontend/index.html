@@ -17,33 +17,37 @@
 
             <form class="controls" id="controls" autocomplete="off">
                 <label class="field">
-                    <span>Symbol</span>
+                    <span>Market</span>
+                    <select id="market" name="market">
+                        <option value="crypto">Crypto</option>
+                        <option value="forex">Forex</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span>Pair</span>
                     <input id="symbol" name="symbol" list="symbols" value="BTCUSDT" maxlength="15" spellcheck="false">
-                    <datalist id="symbols">
-                        <option value="BTCUSDT"></option>
-                        <option value="ETHUSDT"></option>
-                        <option value="BNBUSDT"></option>
-                        <option value="SOLUSDT"></option>
-                        <option value="XRPUSDT"></option>
-                    </datalist>
+                    <datalist id="symbols"></datalist>
                 </label>
 
                 <label class="field">
                     <span>Data</span>
                     <select id="source" name="source">
-                        <option value="live">Live from Binance</option>
+                        <option value="live">Live prices</option>
                         <option value="wait">Sample: waiting</option>
                         <option value="ready">Sample: buy ready</option>
                     </select>
                 </label>
 
                 <label class="check">
-                    <input type="checkbox" id="auto">
-                    <span>Refresh every minute</span>
+                    <input type="checkbox" id="pause">
+                    <span>Pause live updates</span>
                 </label>
 
-                <button type="submit" class="btn" id="refresh">Refresh</button>
+                <button type="submit" class="btn" id="refresh">Load</button>
             </form>
+
+            <div class="pairs" id="pairs" role="group" aria-label="Quick pairs"></div>
 
             <p class="status" id="status" role="status" aria-live="polite"></p>
         </div>
@@ -70,7 +74,7 @@
     </main>
 
     <footer class="wrap foot">
-        <p>This is automated analysis from fixed rules, not financial advice. Live candles come from Binance.</p>
+        <p>This is automated analysis from fixed rules, not financial advice. Crypto candles come from Binance and forex candles from Twelve Data.</p>
     </footer>
 
     <script>

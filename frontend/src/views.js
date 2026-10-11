@@ -42,16 +42,31 @@ export function renderLoading() {
     return `<p class="notice" role="status">Loading analysis…</p>`;
 }
 
-export function renderError(message) {
+export function renderError(message, market = "crypto") {
+    const provider =
+        market === "forex"
+            ? `that it can reach Twelve Data and that <code>TWELVE_DATA_API_KEY</code> is set in <code>backend/.env</code>`
+            : `that it can reach Binance`;
+
     return (
         `<div class="notice error" role="alert">` +
         `<p><strong>Could not load the analysis.</strong></p>` +
         `<p>${esc(message)}</p>` +
         `<p>Check that the backend is running (<code>npm start</code> in <code>backend/</code>) ` +
-        `and that it can reach Binance. You can also switch the data source to a sample.</p>` +
+        `and ${provider}. You can also switch the data source to a sample.</p>` +
         `<button type="button" class="btn" data-action="refresh">Try again</button>` +
         `</div>`
     );
+}
+
+/* ---------- pair chips ---------- */
+
+export function renderPairs(pairs, current) {
+    return (pairs || []).map(pair =>
+        `<button type="button" class="chip" data-pair="${esc(pair)}" ` +
+        `aria-pressed="${pair.replace(/[^A-Z0-9]/gi, "").toUpperCase() === String(current || "").replace(/[^A-Z0-9]/gi, "").toUpperCase()}">` +
+        `${esc(pair)}</button>`
+    ).join("");
 }
 
 export function renderSampleNote(note) {
@@ -120,8 +135,24 @@ function renderLevels(setup) {
             `<tr><th scope="row">${name}</th><td>${price}</td><td class="muted">${change}</td></tr>`
         ).join("") +
         `</tbody></table>` +
-        `<p class="fine">The stop uses the 15M demand or supply zone when it sits on the correct side of entry, ` +
-        `otherwise 0.5% from entry. Targets are 2 and 3 times the risk.</p>`
+        `<p class="fine">${esc(stopExplanation(setup))} Targets are 2 and 3 times the risk.</p>`
+    );
+}
+
+function stopExplanation(setup) {
+    if (setup.stopMethod === "ZONE") {
+        return "The stop sits at the far edge of the 15M demand or supply zone.";
+    }
+
+    const percent = Number(setup.stopPercent);
+
+    const distance = Number.isFinite(percent)
+        ? `${+(percent * 100).toFixed(2)}%`
+        : "a fixed distance";
+
+    return (
+        `No 15M demand or supply zone sits on the correct side of entry, ` +
+        `so the stop is ${distance} from entry.`
     );
 }
 
@@ -166,9 +197,20 @@ export function renderLadder(data) {
 
 /* ---------- chart section ---------- */
 
-export function renderChartSection(state) {
+const TOOLS = [
+    { id: "cursor", label: "Move", title: "Drag the chart and select lines (M)" },
+    { id: "trend", label: "Trend line", title: "Click two points to draw a line (T)" },
+    { id: "hline", label: "Horizontal line", title: "Click a price to draw a line (H)" }
+];
+
+/*
+ * Built once. After that the page only updates the parts that change
+ * (tabs, tool buttons, the live status), so the chart is never rebuilt
+ * while it is running.
+ */
+export function renderChartSection({ timeframe, showTable, snap, tool }) {
     const tabs = TIMEFRAMES.map(tf => {
-        const selected = tf.id === state.timeframe;
+        const selected = tf.id === timeframe;
 
         return (
             `<button type="button" role="tab" class="tab" data-tf="${tf.id}" ` +
@@ -177,17 +219,54 @@ export function renderChartSection(state) {
         );
     }).join("");
 
+    const tools = TOOLS.map(item =>
+        `<button type="button" class="tool-btn" data-tool="${item.id}" title="${esc(item.title)}" ` +
+        `aria-pressed="${item.id === tool}">${item.label}</button>`
+    ).join("");
+
     return (
         `<section class="chart-section" aria-labelledby="chart-title">` +
+
         `<div class="chart-head">` +
         `<h2 id="chart-title" class="label">Chart</h2>` +
         `<div class="tabs" role="tablist" aria-label="Timeframe">${tabs}</div>` +
         `</div>` +
-        `<div class="chart" id="chart-host"></div>` +
+
+        `<div class="chart-tools" role="toolbar" aria-label="Chart tools">` +
+
+        `<div class="tool-group" role="group" aria-label="Draw">` +
+        tools +
+        `<label class="check small"><input type="checkbox" id="snap"${snap ? " checked" : ""}>` +
+        `<span>Snap to candles</span></label>` +
+        `</div>` +
+
+        `<div class="tool-group" role="group" aria-label="Lines">` +
+        `<button type="button" class="tool-btn" data-action="delete-line" disabled>Delete line</button>` +
+        `<button type="button" class="tool-btn" data-action="clear-lines" disabled>Clear all lines</button>` +
+        `</div>` +
+
+        `<div class="tool-group" role="group" aria-label="View">` +
+        `<button type="button" class="tool-btn icon" data-action="zoom-out" aria-label="Zoom out" title="Zoom out (-)">&minus;</button>` +
+        `<button type="button" class="tool-btn icon" data-action="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>` +
+        `<button type="button" class="tool-btn" data-action="reset-view" title="Show the latest candles again (0)">Reset view</button>` +
+        `</div>` +
+
+        `<p class="live-pill" id="live-pill" role="status" aria-live="polite" data-state="idle">` +
+        `<span class="live-dot" aria-hidden="true"></span><span id="live-text">Waiting for data</span></p>` +
+
+        `</div>` +
+
+        `<div class="chart" id="chart-host" tabindex="-1"></div>` +
+
+        `<p class="chart-hint">Scroll to zoom. Drag to move. Double click to reset. ` +
+        `Pick a line tool to draw. Lines are saved in this browser.</p>` +
+
         renderLegend() +
-        `<button type="button" class="link-btn" data-action="toggle-table" aria-expanded="${state.showTable}">` +
-        `${state.showTable ? "Hide" : "Show"} candle data</button>` +
-        (state.showTable ? renderCandleTable(state) : "") +
+
+        `<button type="button" class="link-btn" data-action="toggle-table" aria-expanded="${showTable}">` +
+        `${showTable ? "Hide" : "Show"} candle data</button>` +
+        `<div id="table-slot"></div>` +
+
         `</section>`
     );
 }
@@ -202,31 +281,31 @@ function renderLegend() {
         `<li>${swatch("sw-ob")} Order block</li>` +
         `<li>${swatch("sw-fvg")} Fair value gap</li>` +
         `<li>${swatch("sw-sd")} Supply or demand zone</li>` +
+        `<li>${swatch("sw-line")} Your lines</li>` +
         `</ul>`
     );
 }
 
-function renderCandleTable(state) {
-    const chart = state.data?.analysis?.chart?.[state.timeframe];
-    const candles = (chart?.candles || []).slice(-30).reverse();
+export function renderCandleTable({ timeframe, candles }) {
+    const rows = (candles || []).slice(-30).reverse();
 
-    if (!candles.length) {
+    if (!rows.length) {
         return `<p class="empty">No candles to show.</p>`;
     }
 
-    const rows = candles.map(c =>
+    const body = rows.map(c =>
         `<tr><th scope="row">${esc(formatDateTime(c.time))}</th>` +
         `<td>${esc(formatPrice(c.open))}</td><td>${esc(formatPrice(c.high))}</td>` +
         `<td>${esc(formatPrice(c.low))}</td><td>${esc(formatPrice(c.close))}</td>` +
-        `<td>${esc(formatVolume(c.volume))}</td></tr>`
+        `<td>${c.volume ? esc(formatVolume(c.volume)) : "–"}</td></tr>`
     ).join("");
 
     return (
         `<div class="table-scroll"><table class="data">` +
-        `<caption>Latest 30 ${esc(state.timeframe)} candles, newest first</caption>` +
+        `<caption>Latest 30 ${esc(timeframe)} candles, newest first</caption>` +
         `<thead><tr><th scope="col">Time</th><th scope="col">Open</th><th scope="col">High</th>` +
         `<th scope="col">Low</th><th scope="col">Close</th><th scope="col">Volume</th></tr></thead>` +
-        `<tbody>${rows}</tbody></table></div>`
+        `<tbody>${body}</tbody></table></div>`
     );
 }
 

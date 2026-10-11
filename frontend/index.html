@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AI Trading Analyzer</title>
 
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%23111%27/%3E%3Cpath d=%27M3 11l3-4 3 2 4-5%27 stroke=%27%2338d39f%27 stroke-width=%271.6%27 fill=%27none%27/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Instrument+Sans:wght@400..700&display=swap">
@@ -17,43 +18,73 @@
 
             <form class="controls" id="controls" autocomplete="off">
                 <label class="field">
-                    <span>Symbol</span>
+                    <span>Market</span>
+                    <select id="market" name="market">
+                        <option value="crypto">Crypto</option>
+                        <option value="forex">Forex</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span>Pair</span>
                     <input id="symbol" name="symbol" list="symbols" value="BTCUSDT" maxlength="15" spellcheck="false">
-                    <datalist id="symbols">
-                        <option value="BTCUSDT"></option>
-                        <option value="ETHUSDT"></option>
-                        <option value="BNBUSDT"></option>
-                        <option value="SOLUSDT"></option>
-                        <option value="XRPUSDT"></option>
-                    </datalist>
+                    <datalist id="symbols"></datalist>
                 </label>
 
                 <label class="field">
                     <span>Data</span>
                     <select id="source" name="source">
-                        <option value="live">Live from Binance</option>
+                        <option value="live">Live prices</option>
                         <option value="wait">Sample: waiting</option>
                         <option value="ready">Sample: buy ready</option>
                     </select>
                 </label>
 
                 <label class="check">
-                    <input type="checkbox" id="auto">
-                    <span>Refresh every minute</span>
+                    <input type="checkbox" id="pause">
+                    <span>Pause live updates</span>
                 </label>
 
-                <button type="submit" class="btn" id="refresh">Refresh</button>
+                <button type="submit" class="btn" id="refresh">Load</button>
             </form>
+
+            <div class="pairs" id="pairs" role="group" aria-label="Quick pairs"></div>
 
             <p class="status" id="status" role="status" aria-live="polite"></p>
         </div>
     </header>
 
-    <main class="wrap" id="view"></main>
+    <main class="wrap" id="view">
+        <!--
+            Replaced as soon as the dashboard starts. It only stays visible
+            when the scripts could not run, for example when this file was
+            opened directly instead of through the backend.
+        -->
+        <div class="notice error" id="boot-note" hidden>
+            <p><strong>The dashboard did not start.</strong></p>
+            <p>
+                Open it through the backend: run <code>npm start</code> in the
+                <code>backend</code> folder, then go to
+                <code>http://localhost:5000</code>.
+            </p>
+            <p>
+                Opening <code>index.html</code> as a file does not work, because
+                browsers block the page's scripts when they come from a file.
+            </p>
+        </div>
+    </main>
 
     <footer class="wrap foot">
-        <p>This is automated analysis from fixed rules, not financial advice. Live candles come from Binance.</p>
+        <p>This is automated analysis from fixed rules, not financial advice. Crypto candles come from Binance and forex candles from Twelve Data.</p>
     </footer>
+
+    <script>
+        // Show the note only if the dashboard has not replaced it after a moment.
+        setTimeout(function () {
+            var note = document.getElementById("boot-note");
+            if (note) note.hidden = false;
+        }, 1500);
+    </script>
 
     <script type="module" src="src/main.js"></script>
 </body>

@@ -1,12 +1,14 @@
 import { analyzeMarket } from "./analyzer.js";
 import { generateTradeSetup, generateTradeLevels } from "./setupEngine.js";
 import { generateMultiTimeframeDecision } from "../strategies/multiTimeframeDecisionEngine.js";
+import { profileFor } from "../config/marketProfiles.js";
 
 export function analyzeMultiTimeframe({
     candles4H,
     candles1H,
     candles15M,
-    candles5M
+    candles5M,
+    market = "crypto"
 }) {
     if (
         !Array.isArray(candles4H) ||
@@ -21,10 +23,16 @@ export function analyzeMultiTimeframe({
     // ANALYZE EACH TIMEFRAME
     // --------------------------------------------------
 
-    const analysis4H = analyzeMarket(candles4H);
-    const analysis1H = analyzeMarket(candles1H);
-    const analysis15M = analyzeMarket(candles15M);
-    const analysis5M = analyzeMarket(candles5M);
+    const profile = profileFor(market);
+
+    const options = {
+        equalTolerance: profile.equalTolerance
+    };
+
+    const analysis4H = analyzeMarket(candles4H, options);
+    const analysis1H = analyzeMarket(candles1H, options);
+    const analysis15M = analyzeMarket(candles15M, options);
+    const analysis5M = analyzeMarket(candles5M, options);
 
     // --------------------------------------------------
     // MULTI-TIMEFRAME DECISION ENGINE
@@ -47,7 +55,8 @@ export function analyzeMultiTimeframe({
     const tradeSetup = generateTradeLevels({
         decision: multiTimeframeDecision,
         fifteenMinute: analysis15M,
-        fiveMinute: analysis5M
+        fiveMinute: analysis5M,
+        fallbackStopPct: profile.fallbackStopPct
     });
 
     // --------------------------------------------------
@@ -156,6 +165,8 @@ export function analyzeMultiTimeframe({
     // --------------------------------------------------
 
     return {
+        market,
+
         finalSignal,
         status,
 
@@ -179,15 +190,15 @@ export function analyzeMultiTimeframe({
         legacyTradeSetup,
 
         timeframes: {
-            "4H": analysis4H,
-            "1H": analysis1H,
-            "15M": analysis15M,
-            "5M": analysis5M
+            "4H": trimForResponse(analysis4H),
+            "1H": trimForResponse(analysis1H),
+            "15M": trimForResponse(analysis15M),
+            "5M": trimForResponse(analysis5M)
         },
 
-        // Recent candles for charting. Zone and swing indices in
-        // each timeframe's analysis refer to the full candle array,
-        // so `offset` is the index of the first candle sent.
+        // Candles for charting. Zone and swing indices in each
+        // timeframe's analysis refer to the full candle array, so
+        // `offset` is the index of the first candle sent.
         chart: {
             "4H": toChart(candles4H),
             "1H": toChart(candles1H),
@@ -204,12 +215,35 @@ export function analyzeMultiTimeframe({
 // CHART DATA
 // --------------------------------------------------
 
-function toChart(candles, size = 120) {
+function toChart(candles, size = 300) {
     const offset = Math.max(0, candles.length - size);
 
     return {
         offset,
         candles: candles.slice(offset)
+    };
+}
+
+/*
+ * The market sequence engine logs the same sentence once per swing
+ * it checks, which made each timeframe's `reasons` list hundreds of
+ * lines long, mostly repeats. Keep each line once, in order.
+ * Only the response is trimmed; the engines are untouched.
+ */
+
+function trimForResponse(analysis) {
+    const reasons = analysis?.marketSequence?.reasons;
+
+    if (!Array.isArray(reasons)) {
+        return analysis;
+    }
+
+    return {
+        ...analysis,
+        marketSequence: {
+            ...analysis.marketSequence,
+            reasons: [...new Set(reasons)]
+        }
     };
 }
 

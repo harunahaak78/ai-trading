@@ -1,4 +1,7 @@
-export function buildLiquidityMap(candles) {
+export function buildLiquidityMap(
+    candles,
+    { equalTolerance = 0.001 } = {}
+) {
     if (!Array.isArray(candles) || candles.length < 20) {
         return {
             swingHighs: [],
@@ -50,10 +53,11 @@ export function buildLiquidityMap(candles) {
     /*
      * Equal highs / lows tolerance.
      *
-     * 0.001 = 0.1%
+     * Default 0.001 = 0.1%. Pass `equalTolerance` to change it
+     * (forex uses a much tighter value, see config/marketProfiles.js).
      */
 
-    const tolerance = 0.001;
+    const tolerance = equalTolerance;
 
     const equalHighs = [];
 

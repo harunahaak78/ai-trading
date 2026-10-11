@@ -200,7 +200,8 @@ export function generateTradeSetup({
 export function generateTradeLevels({
     decision,
     fifteenMinute,
-    fiveMinute
+    fiveMinute,
+    fallbackStopPct = 0.005
 }) {
     const result = {
         direction: "WAIT",
@@ -240,6 +241,7 @@ export function generateTradeLevels({
         direction,
         fifteenMinute,
         fiveMinute,
+        fallbackStopPct,
         readyReason: "Levels derived from the multi-timeframe decision"
     });
 }
@@ -253,7 +255,8 @@ export function generateTradeLevels({
  * Entry   = latest 5M price
  * Stop    = far edge of the 15M demand/supply zone, but only if
  *           it sits on the correct side of entry. Otherwise a
- *           0.5% stop is used.
+ *           percentage stop is used (0.5% by default, set per
+ *           market in config/marketProfiles.js).
  * Targets = 2R and 3R
  */
 
@@ -262,13 +265,19 @@ function applyLevels({
     direction,
     fifteenMinute,
     fiveMinute,
-    readyReason
+    readyReason,
+    fallbackStopPct = 0.005
 }) {
     const entry = fiveMinute.price;
 
     result.entry = entry;
 
     const zone = fifteenMinute.supplyDemand;
+
+    // "ZONE" when the stop sits at a supply/demand zone,
+    // "PERCENT" when the fallback distance is used.
+    result.stopMethod = "PERCENT";
+    result.stopPercent = fallbackStopPct;
 
     if (direction === "BUY") {
         const zoneStop =
@@ -279,10 +288,12 @@ function applyLevels({
                 ? zone.zone.low
                 : null;
 
-        result.stopLoss =
-            zoneStop != null && zoneStop < entry
-                ? zoneStop
-                : entry * 0.995;
+        if (zoneStop != null && zoneStop < entry) {
+            result.stopLoss = zoneStop;
+            result.stopMethod = "ZONE";
+        } else {
+            result.stopLoss = entry * (1 - fallbackStopPct);
+        }
     } else {
         const zoneStop =
             zone &&
@@ -292,10 +303,12 @@ function applyLevels({
                 ? zone.zone.high
                 : null;
 
-        result.stopLoss =
-            zoneStop != null && zoneStop > entry
-                ? zoneStop
-                : entry * 1.005;
+        if (zoneStop != null && zoneStop > entry) {
+            result.stopLoss = zoneStop;
+            result.stopMethod = "ZONE";
+        } else {
+            result.stopLoss = entry * (1 + fallbackStopPct);
+        }
     }
 
     const risk = Math.abs(entry - result.stopLoss);

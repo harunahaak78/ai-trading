@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildGates, describeState, blockedGateIndex, GATES } from "../src/gates.js";
+import { buildGates, describeState, blockedGateIndex, GATES } from "../src/lib/gates.js";
 
 const tf = (d4, d1, d15, d5) => ({
     "4H": { direction: d4 }, "1H": { direction: d1 },

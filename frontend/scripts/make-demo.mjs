@@ -21,7 +21,7 @@ import { analyzeMultiTimeframe } from "../../backend/src/services/multiTimeframe
 import { generateTradeLevels } from "../../backend/src/services/setupEngine.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, "..", "demo");
+const outDir = join(here, "..", "public", "demo");
 
 const END_TIME = Date.UTC(2026, 9, 10, 19, 40);
 const STEP_5M = 5 * 60 * 1000;

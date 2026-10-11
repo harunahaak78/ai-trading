@@ -416,6 +416,41 @@ export function generateMultiTimeframeDecision({
     */
 
     if (direction5M === result.higherTimeframeBias) {
+        // The entry must come from a 4H/1H zone: price is in it or has
+        // only just left it (within two zone heights or 0.3%).
+        const entryZone = findHigherTimeframeZone({
+            analysis4H,
+            analysis1H,
+            bias: result.higherTimeframeBias,
+            price: analysis5M?.price
+        });
+
+        result.higherTimeframeZone = entryZone;
+
+        const zoneName = direction5M === "BULLISH" ? "demand" : "supply";
+        const price = analysis5M?.price;
+        const reach = entryZone
+            ? Math.max((entryZone.high - entryZone.low) * 2, price * 0.003)
+            : 0;
+
+        if (!entryZone || entryZone.gap > reach) {
+            result.state = "WAITING_FOR_HTF_ZONE";
+            result.direction = "NEUTRAL";
+            result.reasons.push(
+                entryZone
+                    ? `Entry is away from the ${entryZone.timeframe} ${zoneName} zone`
+                    : `No 4H/1H ${zoneName} zone to trade from`
+            );
+            result.reasons.push(
+                `Waiting for price to return to a 4H/1H ${zoneName} zone`
+            );
+            return result;
+        }
+
+        result.reasons.push(
+            `Entry is at the ${entryZone.timeframe} ${zoneName} zone`
+        );
+
         if (direction5M === "BULLISH") {
             result.state = "BUY_READY";
         } else {

@@ -64,6 +64,7 @@ export function blockedGateIndex(decision) {
             return 2;
 
         case "WAITING_FOR_RETEST":
+        case "WAITING_FOR_HTF_ZONE":
             return 3;
 
         default:
@@ -111,7 +112,7 @@ function blockedDetail(id, decision) {
             if (d15 === "neutral") {
                 return "15M has no directional setup yet.";
             }
-            return `15M is ${d15}, against the ${bias} bias. Counter-trend setups are skipped.`;
+            return `15M is ${d15}, against the ${bias} bias. That is a pullback, so waiting for 15M to turn back ${bias}.`;
 
         case "confirmation":
             if (d5 === "neutral") {
@@ -123,6 +124,9 @@ function blockedDetail(id, decision) {
             return `5M is ${d5}, but its market event is not confirmed yet.`;
 
         case "retest":
+            if (decision.state === "WAITING_FOR_HTF_ZONE") {
+                return "Price is not at a 4H/1H zone. Waiting for it to return to one.";
+            }
             return retestDetail(decision.retestStatus);
 
         default:
@@ -243,6 +247,8 @@ export function describeState(decision) {
             return `The 15M ${bias} setup is in place. Waiting for 5M to confirm.`;
         case "WAITING_FOR_RETEST":
             return `Direction is ${bias} and 5M agrees. Waiting for price to retest the order block and fair value gap.`;
+        case "WAITING_FOR_HTF_ZONE":
+            return `Direction is ${bias} and 5M agrees, but price is not at a 4H/1H zone. Waiting for it to return to one.`;
         case "COUNTER_TREND_BULLISH":
         case "COUNTER_TREND_BEARISH":
             return "5M is moving against the higher-timeframe bias, so no standard signal is issued.";

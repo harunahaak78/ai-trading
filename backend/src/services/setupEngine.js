@@ -235,6 +235,7 @@ export function generateTradeLevels({
             : "SELL";
 
     result.direction = direction;
+    result.entryType = decision.entryType || null;
 
     return applyLevels({
         result,

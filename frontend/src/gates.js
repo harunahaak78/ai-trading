@@ -82,8 +82,10 @@ function retestDetail(status) {
             return "Price is testing the zone for the first time. Waiting for it to hold.";
         case "FIRST_TEST_PASSED":
             return "The first test already held a while ago, so that entry has passed.";
-        case "ALREADY_TESTED":
-            return "The zone was already tested once. A return to it is a retest, which is not used.";
+        case "RETEST_IN_PROGRESS":
+            return "Price is retesting the zone (it was tested before). Waiting for it to hold.";
+        case "RETEST_PASSED":
+            return "The retest already held a while ago, so that entry has passed.";
         case "ZONE_BROKEN":
             return "Price closed through the zone, so it did not hold.";
         case "NO_RETEST_ZONE":
@@ -231,9 +233,9 @@ export function describeState(decision) {
 
     switch (state) {
         case "BUY_READY":
-            return "Every gate passed. Bullish bias, a 15M setup, and the first test of the 5M zone holding.";
+            return "Every gate passed. Bullish bias, a 15M setup, and the 5M zone test holding.";
         case "SELL_READY":
-            return "Every gate passed. Bearish bias, a 15M setup, and the first test of the 5M zone holding.";
+            return "Every gate passed. Bearish bias, a 15M setup, and the 5M zone test holding.";
         case "NO_BIAS":
             return "No clear direction on 4H or 1H, so there is nothing to trade yet.";
         case "CONFLICT": {

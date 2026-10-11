@@ -385,7 +385,10 @@ export function detectObFvgRetest({
         result.firstTest = firstTest;
         result.status = firstTest.status;
 
-        if (firstTest.status === "FIRST_TEST_HELD") {
+        if (
+            firstTest.status === "FIRST_TEST_HELD" ||
+            firstTest.status === "RETEST_HELD"
+        ) {
             result.confirmed = true;
             result.score += 2;
         }
@@ -454,12 +457,13 @@ function evaluateFirstTest({ candles, direction, low, high, startIndex }) {
     let inside = false;
     let broken = false;
     let lastTouchIndex = -1;
+    let episodeStart = -1;
 
     for (let i = from; i <= last; i++) {
         const c = candles[i];
 
         if (touches(c)) {
-            if (!inside) episodes += 1;
+            if (!inside) { episodes += 1; episodeStart = i; }
             inside = true;
             if (firstTouch === -1) firstTouch = i;
             lastTouchIndex = i;
@@ -486,24 +490,23 @@ function evaluateFirstTest({ candles, direction, low, high, startIndex }) {
         };
     }
 
-    if (episodes > 1) {
-        return {
-            status: "ALREADY_TESTED",
-            held: false,
-            index: firstTouch,
-            reason: "The zone was already tested once. A later return is a retest and is not used"
-        };
-    }
-
-    const bars = last - firstTouch;
+    // The first touch is the first test. Any later return to the
+    // zone is a retest. Both can be entries, and the result says which.
+    const isRetest = episodes > 1;
+    const entryType = isRetest ? "RETEST" : "FIRST_TEST";
+    const label = isRetest ? "retest" : "first test";
+    const prefix = isRetest ? "RETEST" : "FIRST_TEST";
+    const testStart = isRetest ? episodeStart : firstTouch;
+    const bars = last - testStart;
 
     if (bars > FIRST_TEST_MAX_BARS) {
         return {
-            status: "FIRST_TEST_PASSED",
+            status: `${prefix}_PASSED`,
+            entryType,
             held: true,
-            index: firstTouch,
+            index: testStart,
             bars,
-            reason: `The first test held ${bars} bars ago. The entry has passed`
+            reason: `The ${label} held ${bars} bars ago. The entry has passed`
         };
     }
 
@@ -516,20 +519,26 @@ function evaluateFirstTest({ candles, direction, low, high, startIndex }) {
 
     if (closedWithBias || movedAway) {
         return {
-            status: "FIRST_TEST_HELD",
+            status: `${prefix}_HELD`,
+            entryType,
             held: true,
-            index: firstTouch,
+            index: testStart,
             bars,
-            reason: "Price tested the zone for the first time and held"
+            reason: isRetest
+                ? "Price retested the zone (not the first test) and held"
+                : "Price tested the zone for the first time and held"
         };
     }
 
     return {
-        status: "FIRST_TEST_IN_PROGRESS",
+        status: `${prefix}_IN_PROGRESS`,
+        entryType,
         held: false,
-        index: firstTouch,
+        index: testStart,
         bars,
-        reason: "Price is testing the zone for the first time. Waiting for it to hold"
+        reason: isRetest
+            ? "Price is retesting the zone. Waiting for it to hold"
+            : "Price is testing the zone for the first time. Waiting for it to hold"
     };
 }
 

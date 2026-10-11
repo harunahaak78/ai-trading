@@ -21,8 +21,13 @@ ok("touch with bearish close, not clear -> IN_PROGRESS", r.status === "FIRST_TES
 r = run([away, c(102,102,98,98.5)]);
 ok("close below zone -> ZONE_BROKEN", r.status === "ZONE_BROKEN" && !r.confirmed, r.status);
 r = run([c(108,108,100,107), away, c(109,109,100.5,108)]);
-ok("second return -> ALREADY_TESTED, no entry", r.status === "ALREADY_TESTED" && !r.confirmed, r.status);
+ok("second return that holds -> RETEST_HELD, an entry labelled retest", r.status === "RETEST_HELD" && r.confirmed && r.firstTest.entryType === "RETEST", r.status);
+r = run([c(108,108,100,107), away, c(101,101,99.5,100)]);
+ok("second return still testing -> RETEST_IN_PROGRESS, no entry", r.status === "RETEST_IN_PROGRESS" && !r.confirmed, r.status);
+ok("first test held is labelled FIRST_TEST", run([away, c(108,108,100,107)]).firstTest.entryType === "FIRST_TEST");
 const long = Array.from({ length: 14 }, () => c(109,111,108,110));
 r = run([c(108,108,100,107), ...long]);
 ok("held long ago -> FIRST_TEST_PASSED, no entry", r.status === "FIRST_TEST_PASSED" && !r.confirmed, r.status);
+r = run([c(108,108,100,107), away, c(109,109,100.5,108), ...long]);
+ok("retest held long ago -> RETEST_PASSED, no entry", r.status === "RETEST_PASSED" && !r.confirmed, r.status);
 process.exit(fails ? 1 : 0);

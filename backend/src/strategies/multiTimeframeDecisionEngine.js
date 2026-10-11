@@ -22,6 +22,9 @@ export function generateMultiTimeframeDecision({
 
         retestStatus: "NONE",
 
+        // FIRST_TEST or RETEST once an entry is ready, otherwise null.
+        entryType: null,
+
         reasons: [],
 
         timeframes: {
@@ -255,7 +258,7 @@ export function generateMultiTimeframeDecision({
             result.confidence += 2;
 
             result.reasons.push(
-                `15M first test of the OB/FVG zone held for ${retest15M.direction || direction15M}`
+                `15M ${retest15M.firstTest?.entryType === "RETEST" ? "retest" : "first test"} of the OB/FVG zone held for ${retest15M.direction || direction15M}`
             );
         } else if (retest15M.detected) {
             result.reasons.push(
@@ -362,9 +365,13 @@ export function generateMultiTimeframeDecision({
             result.confidence += 3;
 
             result.retestStatus = "CONFIRMED";
+            result.entryType =
+                retest5M.firstTest?.entryType || "FIRST_TEST";
 
             result.reasons.push(
-                `5M ${direction5M} first test of the OB/FVG zone held`
+                result.entryType === "RETEST"
+                    ? `5M ${direction5M} retest of the OB/FVG zone held (retest entry)`
+                    : `5M ${direction5M} first test of the OB/FVG zone held`
             );
         } else if (retest5M.detected) {
             result.retestStatus =

@@ -122,7 +122,11 @@ function renderLevels(setup) {
         formatPercent(((price - entry) / entry) * 100);
 
     const rows = [
-        ["Entry", formatPrice(entry), ""],
+        [
+            setup.entryType === "RETEST" ? "Entry (retest)" : "Entry",
+            formatPrice(entry),
+            ""
+        ],
         ["Stop", formatPrice(setup.stopLoss), distance(setup.stopLoss)],
         ["Target 2R", formatPrice(setup.takeProfit1), distance(setup.takeProfit1)],
         ["Target 3R", formatPrice(setup.takeProfit2), distance(setup.takeProfit2)]
@@ -135,6 +139,9 @@ function renderLevels(setup) {
             `<tr><th scope="row">${name}</th><td>${price}</td><td class="muted">${change}</td></tr>`
         ).join("") +
         `</tbody></table>` +
+        (setup.entryType === "RETEST"
+            ? `<p class="fine"><strong>This is a retest entry.</strong> Price already tested the zone once before and held on the return.</p>`
+            : "") +
         `<p class="fine">${esc(stopExplanation(setup))} Targets are 2 and 3 times the risk.</p>`
     );
 }
@@ -332,7 +339,9 @@ const RETEST_TEXT = {
     FIRST_TEST_IN_PROGRESS: "Testing now",
     WAITING_FOR_FIRST_TEST: "Waiting",
     FIRST_TEST_PASSED: "Entry passed",
-    ALREADY_TESTED: "Already tested",
+    RETEST_HELD: "Retest held",
+    RETEST_IN_PROGRESS: "Retesting now",
+    RETEST_PASSED: "Retest passed",
     ZONE_BROKEN: "Broken",
     RETEST_CONFIRMED: "Confirmed",
     RETEST_ACTIVE: "In one zone",

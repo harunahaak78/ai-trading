@@ -34,6 +34,7 @@ const full = (price, zones) => {
 };
 const at = full(100, [{ type: "DEMAND", low: 99, high: 101 }]);
 ok("full stack at 4H demand zone -> BUY_READY", at.state === "BUY_READY");
+ok("entryType carried through", at.entryType === "FIRST_TEST" || at.entryType === "RETEST", String(at.entryType));
 const away = full(130, [{ type: "DEMAND", low: 99, high: 101 }]);
 ok("full stack far from zone -> WAITING_FOR_HTF_ZONE", away.state === "WAITING_FOR_HTF_ZONE" && away.direction === "NEUTRAL");
 const none = full(100, []);

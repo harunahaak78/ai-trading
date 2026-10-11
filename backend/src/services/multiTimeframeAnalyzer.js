@@ -93,6 +93,16 @@ export function analyzeMultiTimeframe({
             status = "SELL_READY";
             break;
 
+        case "WAITING_FOR_HTF_ZONE":
+            finalSignal = "WAIT";
+            status = "WAITING_FOR_HTF_ZONE";
+            break;
+
+        case "PULLBACK_TO_ZONE":
+            finalSignal = "WAIT";
+            status = "PULLBACK_TO_ZONE";
+            break;
+
         case "CONFLICT":
             finalSignal = "WAIT";
             status = "CONFLICT";

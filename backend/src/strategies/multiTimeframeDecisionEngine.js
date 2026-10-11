@@ -22,6 +22,9 @@ export function generateMultiTimeframeDecision({
 
         retestStatus: "NONE",
 
+        // FIRST_TEST or RETEST once an entry is ready, otherwise null.
+        entryType: null,
+
         reasons: [],
 
         timeframes: {
@@ -172,22 +175,50 @@ export function generateMultiTimeframeDecision({
     */
 
     if (direction15M !== result.higherTimeframeBias) {
+        // A 15M move against the bias is normally a pullback. It is
+        // not a signal, but when price is testing a 4H/1H zone it is
+        // exactly what we wait for before the 15M turns back.
+        const zone = findHigherTimeframeZone({
+            analysis4H,
+            analysis1H,
+            bias: result.higherTimeframeBias,
+            price: analysis15M?.price
+        });
+
         result.state = "WAITING_FOR_SETUP";
         result.setupDirection = "NEUTRAL";
         result.direction = "NEUTRAL";
-    
+        result.higherTimeframeZone = zone;
+
+        const zoneName =
+            result.higherTimeframeBias === "BULLISH"
+                ? "demand"
+                : "supply";
+
         result.reasons.push(
-            `15M ${direction15M} setup conflicts with ${result.higherTimeframeBias} higher-timeframe bias`
+            `15M ${direction15M} move is a pullback against the ${result.higherTimeframeBias} higher-timeframe bias`
         );
-    
+
+        if (zone && zone.status === "IN_ZONE") {
+            result.state = "PULLBACK_TO_ZONE";
+            result.reasons.push(
+                `Price is testing the ${zone.timeframe} ${zoneName} zone`
+            );
+        } else if (zone && zone.status === "NEAR") {
+            result.state = "PULLBACK_TO_ZONE";
+            result.reasons.push(
+                `Price is approaching the ${zone.timeframe} ${zoneName} zone`
+            );
+        } else {
+            result.reasons.push(
+                `Price has not reached a 4H/1H ${zoneName} zone yet`
+            );
+        }
+
         result.reasons.push(
-            "Counter-trend 15M setups are not used for standard entries"
+            `Waiting for 15M to turn back ${result.higherTimeframeBias}`
         );
-    
-        result.reasons.push(
-            `Waiting for a fresh ${result.higherTimeframeBias} 15M setup`
-        );
-    
+
         return result;
     }
 
@@ -227,7 +258,7 @@ export function generateMultiTimeframeDecision({
             result.confidence += 2;
 
             result.reasons.push(
-                `15M OB/FVG retest confirmed for ${retest15M.direction || direction15M}`
+                `15M ${retest15M.firstTest?.entryType === "RETEST" ? "retest" : "first test"} of the OB/FVG zone held for ${retest15M.direction || direction15M}`
             );
         } else if (retest15M.detected) {
             result.reasons.push(
@@ -334,9 +365,13 @@ export function generateMultiTimeframeDecision({
             result.confidence += 3;
 
             result.retestStatus = "CONFIRMED";
+            result.entryType =
+                retest5M.firstTest?.entryType || "FIRST_TEST";
 
             result.reasons.push(
-                `5M ${direction5M} OB/FVG retest confirmed`
+                result.entryType === "RETEST"
+                    ? `5M ${direction5M} retest of the OB/FVG zone held (retest entry)`
+                    : `5M ${direction5M} first test of the OB/FVG zone held`
             );
         } else if (retest5M.detected) {
             result.retestStatus =
@@ -346,7 +381,7 @@ export function generateMultiTimeframeDecision({
             result.direction = "NEUTRAL";
 
             result.reasons.push(
-                `5M ${direction5M} setup detected but OB/FVG retest is not confirmed`
+                `5M ${direction5M} setup detected but the first test of the OB/FVG zone has not held yet`
             );
 
             return result;
@@ -355,7 +390,7 @@ export function generateMultiTimeframeDecision({
             result.direction = "NEUTRAL";
 
             result.reasons.push(
-                `5M ${direction5M} structure confirmed but no valid OB/FVG retest`
+                `5M ${direction5M} structure confirmed but no OB/FVG zone to test`
             );
 
             return result;
@@ -365,7 +400,7 @@ export function generateMultiTimeframeDecision({
         result.direction = "NEUTRAL";
 
         result.reasons.push(
-            "5M OB/FVG retest analysis is unavailable"
+            "5M OB/FVG zone analysis is unavailable"
         );
 
         return result;
@@ -388,6 +423,41 @@ export function generateMultiTimeframeDecision({
     */
 
     if (direction5M === result.higherTimeframeBias) {
+        // The entry must come from a 4H/1H zone: price is in it or has
+        // only just left it (within two zone heights or 0.3%).
+        const entryZone = findHigherTimeframeZone({
+            analysis4H,
+            analysis1H,
+            bias: result.higherTimeframeBias,
+            price: analysis5M?.price
+        });
+
+        result.higherTimeframeZone = entryZone;
+
+        const zoneName = direction5M === "BULLISH" ? "demand" : "supply";
+        const price = analysis5M?.price;
+        const reach = entryZone
+            ? Math.max((entryZone.high - entryZone.low) * 2, price * 0.003)
+            : 0;
+
+        if (!entryZone || entryZone.gap > reach) {
+            result.state = "WAITING_FOR_HTF_ZONE";
+            result.direction = "NEUTRAL";
+            result.reasons.push(
+                entryZone
+                    ? `Entry is away from the ${entryZone.timeframe} ${zoneName} zone`
+                    : `No 4H/1H ${zoneName} zone to trade from`
+            );
+            result.reasons.push(
+                `Waiting for price to return to a 4H/1H ${zoneName} zone`
+            );
+            return result;
+        }
+
+        result.reasons.push(
+            `Entry is at the ${entryZone.timeframe} ${zoneName} zone`
+        );
+
         if (direction5M === "BULLISH") {
             result.state = "BUY_READY";
         } else {
@@ -633,4 +703,54 @@ function normalizeDirection(direction) {
     }
 
     return "NEUTRAL";
+}
+
+/*
+============================================================
+HIGHER-TIMEFRAME ZONE
+============================================================
+
+The nearest 4H/1H demand zone (bullish bias) or supply zone
+(bearish bias), and whether price is inside it or close to it.
+*/
+
+function findHigherTimeframeZone({ analysis4H, analysis1H, bias, price }) {
+    if (!Number.isFinite(price)) return null;
+
+    const type = bias === "BULLISH" ? "DEMAND" : bias === "BEARISH" ? "SUPPLY" : null;
+    if (!type) return null;
+
+    let best = null;
+
+    for (const [timeframe, analysis] of [["4H", analysis4H], ["1H", analysis1H]]) {
+        const zones = analysis?.supplyDemand?.zones;
+        if (!Array.isArray(zones)) continue;
+
+        for (const z of zones.slice(-5)) {
+            if (z.type !== type) continue;
+
+            const height = z.high - z.low;
+            const gap =
+                price > z.high ? price - z.high
+                : price < z.low ? z.low - price
+                : 0;
+
+            // A zone broken through the wrong way is no longer a test.
+            const broken =
+                type === "DEMAND" ? price < z.low - height
+                                  : price > z.high + height;
+            if (broken) continue;
+
+            const status =
+                gap === 0 ? "IN_ZONE"
+                : gap <= Math.max(height, price * 0.001) ? "NEAR"
+                : "FAR";
+
+            if (!best || gap < best.gap) {
+                best = { timeframe, type, high: z.high, low: z.low, gap, status };
+            }
+        }
+    }
+
+    return best;
 }

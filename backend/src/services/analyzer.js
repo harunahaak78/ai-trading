@@ -249,7 +249,12 @@ export function analyzeMarket(candles) {
             marketStructure: structure,
             orderBlock,
             fairValueGap: latestFVG,
-            supplyDemand
+            supplyDemand,
+            // Recent-history inputs: the sweep, displacement and BOS
+            // rarely land on the same candle.
+            marketSequence,
+            activeSequence,
+            structureReconciliation
         });
 
 

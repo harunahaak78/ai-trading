@@ -198,6 +198,26 @@ export function generateMultiTimeframeDecision({
     ============================================================
     */
 
+    /*
+     * 15M setup confirmation (sweep -> displacement -> BOS, read
+     * from recent history) adds confidence when it agrees with
+     * the setup direction. It does not change the state.
+     */
+
+    const setup15M = analysis15M?.setupConfirmation;
+
+    if (
+        setup15M &&
+        setup15M.confirmed &&
+        setup15M.direction === direction15M
+    ) {
+        result.confidence += 1;
+
+        result.reasons.push(
+            `15M setup confirmed (${setup15M.score}/6 confluence, ${String(setup15M.source || "").toLowerCase().replace("_", " ")})`
+        );
+    }
+
     const retest15M = analysis15M?.obFvgRetest;
 
     if (retest15M) {

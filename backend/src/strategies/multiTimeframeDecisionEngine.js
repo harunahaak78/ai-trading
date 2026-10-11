@@ -172,22 +172,50 @@ export function generateMultiTimeframeDecision({
     */
 
     if (direction15M !== result.higherTimeframeBias) {
+        // A 15M move against the bias is normally a pullback. It is
+        // not a signal, but when price is testing a 4H/1H zone it is
+        // exactly what we wait for before the 15M turns back.
+        const zone = findHigherTimeframeZone({
+            analysis4H,
+            analysis1H,
+            bias: result.higherTimeframeBias,
+            price: analysis15M?.price
+        });
+
         result.state = "WAITING_FOR_SETUP";
         result.setupDirection = "NEUTRAL";
         result.direction = "NEUTRAL";
-    
+        result.higherTimeframeZone = zone;
+
+        const zoneName =
+            result.higherTimeframeBias === "BULLISH"
+                ? "demand"
+                : "supply";
+
         result.reasons.push(
-            `15M ${direction15M} setup conflicts with ${result.higherTimeframeBias} higher-timeframe bias`
+            `15M ${direction15M} move is a pullback against the ${result.higherTimeframeBias} higher-timeframe bias`
         );
-    
+
+        if (zone && zone.status === "IN_ZONE") {
+            result.state = "PULLBACK_TO_ZONE";
+            result.reasons.push(
+                `Price is testing the ${zone.timeframe} ${zoneName} zone`
+            );
+        } else if (zone && zone.status === "NEAR") {
+            result.state = "PULLBACK_TO_ZONE";
+            result.reasons.push(
+                `Price is approaching the ${zone.timeframe} ${zoneName} zone`
+            );
+        } else {
+            result.reasons.push(
+                `Price has not reached a 4H/1H ${zoneName} zone yet`
+            );
+        }
+
         result.reasons.push(
-            "Counter-trend 15M setups are not used for standard entries"
+            `Waiting for 15M to turn back ${result.higherTimeframeBias}`
         );
-    
-        result.reasons.push(
-            `Waiting for a fresh ${result.higherTimeframeBias} 15M setup`
-        );
-    
+
         return result;
     }
 
@@ -633,4 +661,54 @@ function normalizeDirection(direction) {
     }
 
     return "NEUTRAL";
+}
+
+/*
+============================================================
+HIGHER-TIMEFRAME ZONE
+============================================================
+
+The nearest 4H/1H demand zone (bullish bias) or supply zone
+(bearish bias), and whether price is inside it or close to it.
+*/
+
+function findHigherTimeframeZone({ analysis4H, analysis1H, bias, price }) {
+    if (!Number.isFinite(price)) return null;
+
+    const type = bias === "BULLISH" ? "DEMAND" : bias === "BEARISH" ? "SUPPLY" : null;
+    if (!type) return null;
+
+    let best = null;
+
+    for (const [timeframe, analysis] of [["4H", analysis4H], ["1H", analysis1H]]) {
+        const zones = analysis?.supplyDemand?.zones;
+        if (!Array.isArray(zones)) continue;
+
+        for (const z of zones.slice(-5)) {
+            if (z.type !== type) continue;
+
+            const height = z.high - z.low;
+            const gap =
+                price > z.high ? price - z.high
+                : price < z.low ? z.low - price
+                : 0;
+
+            // A zone broken through the wrong way is no longer a test.
+            const broken =
+                type === "DEMAND" ? price < z.low - height
+                                  : price > z.high + height;
+            if (broken) continue;
+
+            const status =
+                gap === 0 ? "IN_ZONE"
+                : gap <= Math.max(height, price * 0.001) ? "NEAR"
+                : "FAR";
+
+            if (!best || gap < best.gap) {
+                best = { timeframe, type, high: z.high, low: z.low, gap, status };
+            }
+        }
+    }
+
+    return best;
 }

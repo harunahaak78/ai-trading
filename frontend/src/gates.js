@@ -53,6 +53,7 @@ export function blockedGateIndex(decision) {
         }
 
         case "WAITING_FOR_SETUP":
+        case "PULLBACK_TO_ZONE":
             return 1;
 
         case "BULLISH_SETUP":
@@ -232,6 +233,8 @@ export function describeState(decision) {
 
             return `5M is ${directionWord(tf["5M"]?.direction)} but the 15M setup is ${directionWord(tf["15M"]?.direction)}. Waiting for them to agree.`;
         }
+        case "PULLBACK_TO_ZONE":
+            return `Higher timeframes lean ${bias}. 15M is pulling back into a 4H/1H zone. Waiting for 15M to turn back ${bias}.`;
         case "WAITING_FOR_SETUP":
             return `Higher timeframes lean ${bias}. 15M has no matching setup yet.`;
         case "WAITING_FOR_CONFIRMATION":

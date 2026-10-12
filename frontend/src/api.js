@@ -66,14 +66,20 @@ function backendCandidates() {
  * plain-language message; `retryAfterMs` is set when the server asked
  * to be left alone for a while.
  */
-async function request(path, { signal } = {}) {
+async function request(path, { signal, method = "GET", payload = null } = {}) {
     let lastFailure = null;
 
     for (const base of backendCandidates()) {
         let response;
 
         try {
-            response = await fetch(`${base}${path}`, { signal });
+            response = await fetch(`${base}${path}`, {
+                signal,
+                method,
+                ...(payload
+                    ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+                    : {})
+            });
         } catch (error) {
             if (error.name === "AbortError") throw error;
 
@@ -156,3 +162,26 @@ export async function loadConfig() {
         return null;
     }
 }
+
+
+/* ---------- paper trading (simulated account on the backend) ---------- */
+
+export const loadPaper = signal => request("/api/paper", { signal });
+
+export const loadJournal = (limit = 100, signal) =>
+    request(`/api/paper/journal?limit=${limit}`, { signal });
+
+export const setPaperRunning = running =>
+    request("/api/paper/control", { method: "POST", payload: { running } });
+
+export const watchPair = (market, symbol) =>
+    request("/api/paper/watch", { method: "POST", payload: { market, symbol } });
+
+export const unwatchPair = (market, symbol) =>
+    request(
+        `/api/paper/watch?market=${encodeURIComponent(market)}&symbol=${encodeURIComponent(symbol)}`,
+        { method: "DELETE" }
+    );
+
+export const resetPaper = startingBalance =>
+    request("/api/paper/reset", { method: "POST", payload: { confirm: true, startingBalance } });

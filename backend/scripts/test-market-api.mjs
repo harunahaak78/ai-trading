@@ -26,7 +26,7 @@ function check(name, condition, detail = "") {
 function start(file, env) {
     const child = spawn(process.execPath, [file], {
         cwd: backendDir,
-        env: { ...process.env, ...env },
+        env: { ...process.env, PAPER_ENABLED: "false", ...env },
         stdio: ["ignore", "pipe", "pipe"]
     });
 

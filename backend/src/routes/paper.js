@@ -6,11 +6,17 @@ import {
     setRunning,
     addPair,
     removePair,
-    resetAccount
+    resetAccount,
+    isEnabled
 } from "../paper/trader.js";
 import { HttpError, statusOf } from "../services/marketdata.js";
 
 const router = express.Router();
+
+router.use((req, res, next) => {
+    if (isEnabled()) return next();
+    res.status(503).json({ success: false, message: "The paper trader is turned off on this server." });
+});
 
 function fail(res, error) {
     res.status(statusOf(error)).json({ success: false, message: error.message });

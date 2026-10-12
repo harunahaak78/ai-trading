@@ -307,6 +307,12 @@ function parsePairs(text) {
 }
 
 export function startPaperTrader() {
+    // PAPER_ENABLED=false turns the paper trader off completely.
+    if (process.env.PAPER_ENABLED === "false") {
+        console.log("Paper trader is off (PAPER_ENABLED=false)");
+        return;
+    }
+
     state = load();
 
     if (state.watchlist.length === 0) {
@@ -332,6 +338,8 @@ export function startPaperTrader() {
         `(${state.running ? "taking entries" : "paused"}), balance $${state.account.balance.toFixed(2)}`
     );
 }
+
+export const isEnabled = () => state !== null;
 
 export function stopPaperTrader() {
     for (const entry of state?.watchlist || []) stopPair(entry);

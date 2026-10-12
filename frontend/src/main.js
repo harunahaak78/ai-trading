@@ -3,6 +3,7 @@ import { esc, formatClock, setPriceMarket } from "./format.js";
 import { createLiveChart } from "./liveChart.js";
 import { createLiveFeed, TIMEFRAMES as FEED_TIMEFRAMES } from "./live.js";
 import { buildOverlays } from "./overlays.js";
+import { createPaperPanel } from "./paper.js";
 
 import {
     TIMEFRAMES,
@@ -148,12 +149,22 @@ view.innerHTML =
         tool: "cursor"
     }) +
     `</div>` +
-    `<div id="compare-slot"></div>`;
+    `<div id="compare-slot"></div>` +
+    `<section class="paper panel" id="paper-slot" aria-labelledby="paper-h"></section>`;
 
 const noticesEl = document.getElementById("notices");
 const heroEl = document.getElementById("hero");
 const chartSlot = document.getElementById("chart-slot");
 const compareSlot = document.getElementById("compare-slot");
+const paperSlot = document.getElementById("paper-slot");
+
+// The simulated $1,000 account that trades the system's signals.
+const paper = createPaperPanel(paperSlot, {
+    getCurrent: () =>
+        state.source === "live" && state.data?.symbol
+            ? { market: state.data.market, symbol: state.data.symbol }
+            : null
+});
 const chartHost = document.getElementById("chart-host");
 const tableSlot = document.getElementById("table-slot");
 const pillEl = document.getElementById("live-pill");
@@ -481,6 +492,7 @@ function render() {
 
     syncChart();
     renderPill();
+    paper.render();
 }
 
 /* ---------- live status ---------- */
@@ -781,6 +793,7 @@ syncControls();
 renderPill();
 renderHero();
 updateTools();
+paper.start();
 
 loadConfig()
     .then(config => {

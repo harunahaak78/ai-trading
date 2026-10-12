@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 
 import analysisRouter from "./routes/analysis.js";
 import marketRouter from "./routes/market.js";
+import paperRouter from "./routes/paper.js";
+import { startPaperTrader } from "./paper/trader.js";
 
 dotenv.config();
 
@@ -62,6 +64,12 @@ app.use(
     marketRouter
 );
 
+// Simulated account: no real orders, demo balance only.
+app.use(
+    "/api/paper",
+    paperRouter
+);
+
 
 // ===============================
 // SERVER
@@ -71,4 +79,6 @@ app.listen(PORT, () => {
     console.log(
         `AI Trading API running on port ${PORT}`
     );
+
+    startPaperTrader();
 });

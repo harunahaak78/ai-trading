@@ -93,7 +93,7 @@ function retestDetail(status) {
         case "NONE":
         case undefined:
         case null:
-            return "No order block or fair value gap to retest on 5M yet.";
+            return "No order block or fair value gap to test on 5M yet.";
         case "INVALIDATED_BY_STRUCTURE_REVERSAL":
             return "The earlier zone was invalidated by a structure reversal.";
         case "SEQUENCE_STALE":
@@ -160,7 +160,7 @@ function passedDetail(id, decision) {
         case "confirmation":
             return `5M is ${d5}, agrees with 15M, and its event is confirmed.`;
         case "retest":
-            return "Price is inside both the order block and the fair value gap on 5M.";
+            return "Price tested the order block or fair value gap on 5M and held.";
         default:
             return decision.state === "BUY_READY"
                 ? "Buy signal issued."
@@ -181,7 +181,7 @@ function pendingDetail(id, decision) {
         case "confirmation":
             return "Needs 5M to agree with the 15M setup.";
         case "retest":
-            return "Needs price back inside an order block and fair value gap.";
+            return "Needs price to test an order block or fair value gap and hold.";
         default:
             return "No entry until every gate above passes.";
     }

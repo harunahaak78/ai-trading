@@ -1393,3 +1393,160 @@ h3.label {
         flex: 1;
     }
 }
+
+/* ---------- paper trading ---------- */
+
+.paper {
+    margin-top: 40px;
+}
+
+.paper-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 14px 24px;
+    align-items: flex-start;
+}
+
+.paper-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1.2;
+}
+
+.paper-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-quiet {
+    background: transparent;
+    color: var(--ink);
+}
+
+.btn-quiet:hover {
+    background: var(--wait-wash);
+    border-color: var(--ink);
+}
+
+.paper-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin: 18px 0 6px;
+}
+
+.paper-tile {
+    padding: 12px 14px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+}
+
+.paper-tile dt {
+    font-size: 0.8125rem;
+    color: var(--muted);
+}
+
+.paper-tile dd {
+    margin-top: 2px;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.paper .up {
+    color: var(--buy);
+}
+
+.paper .down {
+    color: var(--sell);
+}
+
+.paper .flat {
+    color: inherit;
+}
+
+.paper-watch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.paper-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-size: 0.875rem;
+}
+
+.chip-x {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.chip-x:hover {
+    background: var(--wait-wash);
+    color: var(--ink);
+}
+
+.paper-table {
+    min-width: 720px;
+    font-variant-numeric: tabular-nums;
+}
+
+.paper-table th[scope="row"] {
+    width: auto;
+}
+
+.tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--wait-wash);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.tag-retest {
+    background: var(--sell-wash);
+    color: var(--sell);
+}
+
+.paper-why summary {
+    cursor: pointer;
+    color: var(--focus);
+    font-size: 0.875rem;
+}
+
+.paper-why ul {
+    margin: 4px 0 6px 18px;
+}
+
+.paper-why {
+    max-width: 30rem;
+}
+
+.paper-log {
+    list-style: none;
+    font-size: 0.875rem;
+}
+
+.paper-log li {
+    padding: 6px 0;
+    border-top: 1px solid var(--rule);
+}

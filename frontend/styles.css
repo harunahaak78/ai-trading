@@ -1550,3 +1550,7 @@ h3.label {
     padding: 6px 0;
     border-top: 1px solid var(--rule);
 }
+
+.paper-watch .link-btn {
+    margin-top: 0;
+}

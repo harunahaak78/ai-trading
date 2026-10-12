@@ -73,7 +73,7 @@ function watching(data, current) {
                 : SIGNAL_TEXT[w.signal] || (w.status ? humanize(w.status) : "starting");
 
         return (
-            `<span class="paper-chip">` +
+            `<span class="paper-chip"${w.error ? ` title="${esc(w.error)}"` : ""}>` +
             `<strong>${esc(w.symbol)}</strong> ` +
             `<span class="muted">${esc(note)}</span>` +
             `<button type="button" class="chip-x" data-paper="unwatch" ` +
@@ -86,6 +86,17 @@ function watching(data, current) {
     const watched = current &&
         data.watchlist.some(w => w.market === current.market && w.symbol === current.symbol);
 
+    const SUGGESTED = [
+        ["forex", "EUR/USD"], ["forex", "USD/CAD"], ["forex", "AUD/USD"],
+        ["forex", "GBP/USD"], ["forex", "USD/JPY"],
+        ["crypto", "BTCUSDT"], ["crypto", "ETHUSDT"]
+    ].filter(([m, sym]) => !data.watchlist.some(w => w.market === m && w.symbol === sym));
+
+    const quick = SUGGESTED.map(([m, sym]) =>
+        `<button type="button" class="link-btn" data-paper="watch-pair" ` +
+        `data-market="${m}" data-symbol="${esc(sym)}">+ ${esc(sym)}</button>`
+    ).join("");
+
     const add = current && !watched
         ? `<button type="button" class="link-btn" data-paper="watch">Trade ${esc(current.symbol)} too</button>`
         : "";
@@ -94,6 +105,7 @@ function watching(data, current) {
         `<div class="paper-watch"><span class="label">Watching</span> ` +
         (chips || `<span class="muted">No pairs yet.</span>`) +
         add +
+        quick +
         `</div>`
     );
 }
@@ -315,6 +327,10 @@ export function createPaperPanel(host, { getCurrent }) {
 
             case "watch":
                 if (current) act(() => watchPair(current.market, current.symbol));
+                break;
+
+            case "watch-pair":
+                act(() => watchPair(button.dataset.market, button.dataset.symbol));
                 break;
 
             case "unwatch":

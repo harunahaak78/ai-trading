@@ -295,8 +295,15 @@ function stopPair(entry) {
 
 // ---------- public API ----------
 
+const DEFAULT_PAIRS =
+    "crypto:BTCUSDT,forex:EUR/USD,forex:USD/CAD,forex:AUD/USD";
+
+// Bump this when the default pair list grows, so existing saved
+// accounts pick up the new pairs once (and can still remove them).
+const DEFAULTS_VERSION = 2;
+
 function parsePairs(text) {
-    return String(text || "crypto:BTCUSDT")
+    return String(text || DEFAULT_PAIRS)
         .split(",")
         .map(part => part.trim())
         .filter(Boolean)
@@ -315,15 +322,23 @@ export function startPaperTrader() {
 
     state = load();
 
-    if (state.watchlist.length === 0) {
+    const addPairs = () => {
         for (const p of parsePairs(process.env.PAPER_PAIRS)) {
             try {
                 const { symbol } = normalizeSymbol(p.market, p.symbol);
-                state.watchlist.push({ market: p.market, symbol });
+
+                if (!state.watchlist.some(e => e.market === p.market && e.symbol === symbol)) {
+                    state.watchlist.push({ market: p.market, symbol });
+                }
             } catch (error) {
                 console.error(`PAPER_PAIRS: ${error.message}`);
             }
         }
+    };
+
+    if (state.watchlist.length === 0 || (state.defaultsVersion || 1) < DEFAULTS_VERSION) {
+        addPairs();
+        state.defaultsVersion = DEFAULTS_VERSION;
     }
 
     if (process.env.PAPER_AUTOSTART === "false") state.running = false;

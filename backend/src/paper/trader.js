@@ -94,8 +94,10 @@ function save() {
     }, 250);
 }
 
+// Every journal line is also a change worth saving.
 function log(symbol, type, text) {
     state.log.push({ time: Date.now(), symbol, type, text });
+    save();
     if (state.log.length > LOG_LIMIT) {
         state.log.splice(0, state.log.length - LOG_LIMIT);
     }
@@ -226,7 +228,6 @@ async function cycle(entry) {
             }
         }
 
-        save();
         return;
     }
 
@@ -245,7 +246,6 @@ async function cycle(entry) {
 
         const changed = updateTrades(state.account, entry.symbol, candles, FIVE_MIN);
         for (const t of changed) logExits(t);
-        if (changed.length) save();
     }
 }
 
